@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AlumCalc Pro – Alufabb Fenestration</title>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-JPJ6GD2X9J"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-JPJ6GD2X9J');</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f1117;color:#e2e8f0;font-family:'Segoe UI',sans-serif;min-height:100vh}
+    select,input{outline:none}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:#1e293b}
+    ::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+    table{border-collapse:collapse;width:100%}
+    .sw{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .2s;flex-shrink:0}
+    .sw:hover{transform:scale(1.1)}
+    .sw.on{border-color:#3b82f6;transform:scale(1.13);box-shadow:0 0 0 2px #1e293b,0 0 0 4px #3b82f6}
+    @media(max-width:780px){.mg{grid-template-columns:1fr!important}.sb{flex-wrap:wrap!important}}
+    @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .fi{animation:fi .25s ease}
+    .nav-tab{padding:10px 20px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all .2s;background:transparent;border-bottom:3px solid transparent;color:#64748b}
+    .nav-tab.on{color:#93c5fd;border-bottom-color:#3b82f6}
+    .nav-tab:hover:not(.on){color:#cbd5e1}
+    .series-pill{padding:6px 12px;border-radius:8px;border:1px solid;cursor:pointer;font-size:11px;font-weight:700;transition:all .2s;white-space:nowrap}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo}=React;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════════════════
+const SERIES={
+  "29slim":{id:"29slim",label:"29mm Slim",badge:"29S",color:"#3b82f6",
+    wt:{t2:1.317,t3:1.943,sH:.942,sW:.942,cap:1.17,kpa:1.063,slim:.547,cc:.532,msH:.982,msW:.982,mi:.505,mc:.144},
+    hasCap:true,hasKPA:true,types:["2T2S","3T3S","2T4SCO","3T6SCO","3T2S1N","3T4S2N"]},
+  "25mm":{id:"25mm",label:"25mm Prestige",badge:"25P",color:"#8b5cf6",
+    wt:{t2:1.01,t3:1.238,sH:.741,sW:.741,cap:.18,kpa:.975,slim:.461,csW:.741},
+    hasCap:true,hasKPA:true,types:["2T2S","3T3S"]},
+  "27mm":{id:"27mm",label:"27mm",badge:"27",color:"#10b981",
+    wt:{t2:.725,t3:1.172,sH:.716,sW:.716,interlock:.309},
+    hasCap:false,hasKPA:false,types:["2T2S","3T3S","3T2S1N"]},
+  "35mm":{id:"35mm",label:"35mm",badge:"35",color:"#f59e0b",
+    wt:{t2:1.996,t3:2.809,sH:1.326,sW:1.326,kpa:1.063,slim:.481,csW:1.326},
+    hasCap:false,hasKPA:true,types:["2T2S","3T3S"]},
+  "37mm":{id:"37mm",label:"37mm",badge:"37",color:"#ef4444",
+    wt:{t2:1.84,t3:2.678,sH:1.364,sW:1.364,kpa:1.063,slim:.689,csW:1.364},
+    hasCap:false,hasKPA:true,types:["2T2S","3T3S"]},
+};
+const ALL_TYPES=[
+  {id:"2T2S",  label:"2T-2S",      full:"2 Track 2 Shutter",         tracks:2,sh:2,hasNet:false,co:false},
+  {id:"3T3S",  label:"3T-3S",      full:"3 Track 3 Shutter",         tracks:3,sh:3,hasNet:false,co:false},
+  {id:"2T4SCO",label:"2T-4S(CO)",  full:"2 Track 4 Shutter (Centre)",tracks:2,sh:4,hasNet:false,co:true},
+  {id:"3T6SCO",label:"3T-6S(CO)",  full:"3 Track 6 Shutter (Centre)",tracks:3,sh:6,hasNet:false,co:true},
+  {id:"3T2S1N",label:"3T-2S+1Net", full:"3 Track 2 Shutter + 1 Net", tracks:3,sh:2,hasNet:true, co:false,nc:1},
+  {id:"3T4S2N",label:"3T-4S+2Net", full:"3 Track 4 Shutter + 2 Net", tracks:3,sh:4,hasNet:true, co:false,nc:2},
+];
+const COLORS=[
+  {id:"white",label:"White",      hex:"#F0F0EB",ral:"RAL 9016",add:12},
+  {id:"black",label:"Black",      hex:"#2a2a2a",ral:"RAL 9005",add:15},
+  {id:"grey", label:"Grey",       hex:"#8a8a8a",ral:"RAL 7040",add:12},
+  {id:"custom",label:"Custom RAL",hex:"#c084fc",ral:"Custom",  add:25},
+];
+const DR={al:350,wst:.10,g5:55,net:35,ep:10,lb2:60,lb3:65,tr:100,pc:0,
+  b2:80,b3:110,cl:90,cl3:210,mp:300,nh:45,tn:25,pr:23,crd:45,
+  alp:5,wp:1,wd:7,fn:4,ws:3,bs:35,st:33,ad:45,si:185,kp:25,sl:3,ic:4.5};
+
+const mf=m=>m/304.8;
+const sf=(w,h)=>(w/304.8)*(h/304.8);
+const fm=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const fn=(n,d=0)=>typeof n==="number"?n.toFixed(d):"-";
+const uid=()=>Math.random().toString(36).slice(2,8);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALCULATION ENGINE
+// ══════════════════════════════════════════════════════════════════════════════
+function doCalc(W,H,type,series,rates,lock,cid){
+  const w=+W,h=+H;
+  if(!w||!h||w<200||h<200)return null;
+  const wt=series.wt,isKPA=series.hasKPA&&h>1800;
+  const tr=type.tracks,SH=type.sh,co=type.co,hn=type.hasNet,nc=type.nc||0;
+  const secs=[];
+  const add=(n,sz,q,wgt)=>{const mtr=(sz/1000)*q,kg=mtr*wgt,amt=kg*rates.al;secs.push({n,sz,q,mtr,wt:wgt,kg,amt});};
+  const tw=tr===2?wt.t2:wt.t3;
+  add(tr+" Track W",w,2,tw); add(tr+" Track H",h,2,tw);
+  let sw;
+  if(!co){
+    if(tr===2){sw=(w-107)/2;add("Shutter Bottom",sw,4,wt.sW);add("Shutter H",h-85,SH,wt.sH);}
+    else{sw=(w-106)/3;add("Shutter Bottom 45+90",sw,4,wt.sW);add("Shutter H",h-85,2,wt.sH);add("Centre Shutter 90+90",sw-23,2,wt.csW||wt.sW);}
+  } else {
+    sw=(w-136)/4;add("Shutter Bottom",sw,8,wt.sW);
+    if(tr===3)add("Centre Shutter",sw-22,4,wt.csW||wt.sW);
+    add("Shutter H",h-85,4,wt.sH);
+  }
+  if(series.hasCap)add("Track Cap",w-101,tr,wt.cap);
+  let ikpa=co?(tr===2?2:4):(tr===2?1:2),islim=ikpa;
+  if(!isKPA||!series.hasKPA)ikpa=0;
+  if(series.id==="27mm"){add("Interlock",h-85,islim,wt.interlock);}
+  else{if(ikpa>0)add("Interlock KPA",h-85,ikpa,wt.kpa);add("Interlock Slim",h-85,islim,wt.slim);if(co)add("Centre Clip",h-85,1,.532);}
+  if(hn){add("Mesh Shutter H",h-85,nc,.982);add("Mesh Top/Bottom",sw||(w-107)/2,nc*2,.982);add("Mesh Interlock",h-85,nc,.505);add("Mesh Clip H",h-103,nc*2,.144);add("Mesh Clip W",(w/(SH/nc))-35,nc*2,.144);}
+  const twt=secs.reduce((s,x)=>s+x.kg,0),wst=twt*rates.wst,alAmt=(twt+wst)*rates.al;
+  const glass=[];
+  const gsw=co?sw-37:(tr===2?(w-107)/2:(w-106)/3)-37,gsh=h-85-103;
+  glass.push({n:"5mm Clear Glass",sw:gsw,sh:gsh,q:co?4:2});
+  if(tr===3&&!co)glass.push({n:"5mm Clear (Centre)",sw:(w-106)/3-23+27,sh:gsh,q:1});
+  if(co&&tr===3)glass.push({n:"5mm Clear (Centre)",sw:sw-22+27,sh:gsh,q:2});
+  if(hn)glass.push({n:"Mosquito Net SS304",sw:(w/SH)*nc,sh:h,q:nc,isNet:true});
+  glass.forEach(g=>{g.sqe=sf(g.sw,g.sh);g.tsq=g.sqe*g.q;g.amt=g.tsq*(g.isNet?rates.net:rates.g5);});
+  const glAmt=glass.reduce((s,g)=>s+g.amt,0);
+  const hw=[];const tSq=sf(w,h);const is3=tr===3;
+  hw.push({n:"Bearing",q:SH*2,r:is3?rates.b3:rates.b2});
+  hw.push({n:"Concealed Lock",q:Math.ceil(SH/2),r:is3?rates.cl3:rates.cl,note:"OPT."});
+  hw.push({n:"Wool Pile W",q:+(mf(w)*(tr===2?3:SH)).toFixed(2),r:rates.wp,u:"rft"});
+  hw.push({n:"Wool Pile H",q:+(mf(h)*(tr===2?3:SH)).toFixed(2),r:rates.wp,u:"rft"});
+  hw.push({n:"Water Drain Cap",q:tr===2?3:4,r:rates.wd});
+  hw.push({n:"Fastener",q:SH*3,r:rates.fn});hw.push({n:"Wall Screw",q:SH*3,r:rates.ws});
+  hw.push({n:"Bump Stopper",q:Math.ceil(SH/2),r:rates.bs});
+  hw.push({n:"Sticker",q:SH*2,r:rates.st});hw.push({n:"Anti Dust",q:Math.ceil(SH/2),r:rates.ad});
+  hw.push({n:"Silicon",q:1,r:rates.si});
+  if(isKPA&&series.hasKPA)hw.push({n:"KPA Cover",q:ikpa*2,r:rates.kp});
+  hw.push({n:"Silicon Labour",q:+tSq.toFixed(2),r:rates.sl,u:"sqft"});
+  hw.push({n:"Interlock Cap",q:(ikpa+islim)*2,r:rates.ic});
+  if(hn)hw.push({n:"Anti Lift Patti",q:4,r:rates.alp});
+  const lockAmt=lock==="mp"?rates.mp*Math.ceil(SH/2)+(SH<=2?3:SH*1.5)*(rates.nh+rates.tn)+Math.ceil(h/1000)*rates.pr+Math.ceil(SH/2)*rates.crd:0;
+  const hwAmt=hw.reduce((s,x)=>s+(+x.q)*x.r,0)+lockAmt;
+  const epW=mf(w)*SH,epH=mf(h)*SH,epT=(mf(w)+mf(h))*tr;
+  let totEp=epW+epH+epT;if(hn)totEp+=mf(w/SH*nc+h)*nc;
+  const epAmt=totEp*rates.ep;
+  const lbR=tr===2?rates.lb2:rates.lb3,lbAmt=tSq*lbR;
+  const color=COLORS.find(c=>c.id===cid)||COLORS[0];
+  const pcR=(rates.pc||0)+color.add,pcAmt=pcR>0?tSq*pcR:0;
+  const unitTotal=alAmt+glAmt+hwAmt+epAmt+lbAmt+rates.tr+pcAmt;
+  return{w,h,type,series,tSq,secs,twt,wst,alAmt,glass,glAmt,hw,hwAmt,lockAmt,lock,epW,epH,epT,totEp,epAmt,lbR,lbAmt,pcAmt,pcR,color,transport:rates.tr,unitTotal,sqR:unitTotal/tSq,isKPA,ikpa,islim,sw};
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WINDOW DIAGRAM SVG
+// ══════════════════════════════════════════════════════════════════════════════
+function WinDiag({type,colorHex,W,H,seriesColor,size="md"}){
+  const {tracks:tr,sh,co,hasNet:hn,nc=0}=type;
+  const fc=colorHex||"#cccccc";
+  const dim=W&&H?W+"×"+H+" mm":"";
+  const PW=size==="sm"?160:300, PH=size==="sm"?130:220;
+  const sc=size==="sm"?0.53:1;
+  // Realistic frame measurements (at md scale)
+  const FX=10,FY=10,FW=PW-20,FH=PH-30;
+  const FRAME=8,TRACK_H=7,SILL=8;
+  // inner opening
+  const IX=FX+FRAME,IY=FY+FRAME+TRACK_H,IW=FW-FRAME*2,IH=FH-FRAME*2-TRACK_H-SILL;
+  // shutter / net widths
+  const shAreaW=hn?IW*0.67:IW;
+  const ntAreaW=hn?IW*0.33:0;
+  const shPW=shAreaW/sh, ntPW=nc>0?ntAreaW/nc:0;
+  const gc1="#b8d8f0", gc2="#e4f4ff", nc2="#5aba8a";
+  const arrow=i=>co?i<Math.floor(sh/2)?"←":"→":i%2===0?"←":"→";
+  const fss=size==="sm"?7:12, fsn=size==="sm"?6:9;
+  const hndW=size==="sm"?2.5:4, hndH=size==="sm"?10:16;
+  const wheelR=size==="sm"?1.5:2.5;
+
+  return(
+    <svg viewBox={"0 0 "+PW+" "+(PH+4)} style={{width:"100%",display:"block",margin:"0 auto"}}>
+      {/* bg */}
+      <rect x={0} y={0} width={PW} height={PH+4} fill="#0f1117" rx={5}/>
+      {/* wall reveal */}
+      <rect x={FX-3} y={FY-3} width={FW+6} height={FH+6} rx={3} fill="#2a2a28" opacity={0.6}/>
+      {/* outer frame */}
+      <rect x={FX} y={FY} width={FW} height={FH} rx={2} fill={fc} stroke="#777" strokeWidth={1.5}/>
+      {/* frame inner shadow */}
+      <rect x={FX+2} y={FY+2} width={FW-4} height={FH-4} rx={1} fill="none" stroke="#555" strokeWidth={0.5} opacity={0.5}/>
+      {/* top track housing */}
+      <rect x={IX} y={FY+FRAME} width={IW} height={TRACK_H} fill="#aaa" stroke="#888" strokeWidth={0.5}/>
+      {Array.from({length:tr},(_,i)=><line key={"tt"+i} x1={IX} y1={FY+FRAME+2+i*2} x2={IX+IW} y2={FY+FRAME+2+i*2} stroke="#ccc" strokeWidth={0.5} opacity={0.6}/>)}
+      {/* bottom sill / track */}
+      <rect x={IX} y={IY+IH} width={IW} height={SILL} fill="#aaa" stroke="#888" strokeWidth={0.5}/>
+      {Array.from({length:tr},(_,i)=><line key={"bt"+i} x1={IX} y1={IY+IH+2+i*2} x2={IX+IW} y2={IY+IH+2+i*2} stroke="#ccc" strokeWidth={0.5} opacity={0.6}/>)}
+
+      {/* === SHUTTER PANELS === */}
+      {Array.from({length:sh},(_,i)=>{
+        const px=IX+i*shPW, pw=shPW;
+        const gx=px+3, gy2=IY+4, gw=pw-6, gh=IH-8;
+        return <g key={"s"+i}>
+          {/* shutter frame */}
+          <rect x={px} y={IY} width={pw} height={IH} rx={1} fill={fc+"dd"} stroke="#888" strokeWidth={0.8}/>
+          {/* glass pane */}
+          <rect x={gx} y={gy2} width={gw} height={gh} rx={1} fill={gc1} fillOpacity={0.6} stroke="#99c0dc" strokeWidth={0.5}/>
+          {/* glass highlight top-left */}
+          <rect x={gx+1} y={gy2+1} width={gw*0.4} height={gh*0.3} rx={1} fill={gc2} fillOpacity={0.45}/>
+          {/* glass shine line */}
+          <line x1={gx+3} y1={gy2+4} x2={gx+3} y2={gy2+gh*0.45} stroke="#fff" strokeWidth={1} opacity={0.3}/>
+          {/* slide arrow */}
+          <text x={gx+gw/2} y={gy2+gh/2+3} textAnchor="middle" fill="#7ab" fontSize={fss} opacity={0.7}>{arrow(i)}</text>
+          {/* panel label */}
+          <text x={gx+gw/2} y={IY+IH-3} textAnchor="middle" fill="#555" fontSize={size==="sm"?5:7}>{"S"+(i+1)}</text>
+          {/* roller wheels */}
+          <circle cx={px+5} cy={IY+IH-1} r={wheelR} fill="#666" stroke="#444" strokeWidth={0.4}/>
+          <circle cx={px+pw-5} cy={IY+IH-1} r={wheelR} fill="#666" stroke="#444" strokeWidth={0.4}/>
+          {/* handle on last shutter of each side */}
+          {((!co&&i===sh-1)||(co&&i===Math.floor(sh/2)-1))&&
+            <g>
+              <rect x={px+pw-hndW-2} y={IY+IH/2-hndH/2} width={hndW} height={hndH} rx={hndW/2} fill="#777" stroke="#555" strokeWidth={0.5}/>
+              <rect x={px+pw-hndW-3} y={IY+IH/2-hndH/3} width={hndW+2} height={hndH*0.6} rx={1} fill="#999" stroke="#666" strokeWidth={0.4}/>
+            </g>}
+          {(co&&i===Math.floor(sh/2))&&
+            <g>
+              <rect x={px+2} y={IY+IH/2-hndH/2} width={hndW} height={hndH} rx={hndW/2} fill="#777" stroke="#555" strokeWidth={0.5}/>
+              <rect x={px+1} y={IY+IH/2-hndH/3} width={hndW+2} height={hndH*0.6} rx={1} fill="#999" stroke="#666" strokeWidth={0.4}/>
+            </g>}
+        </g>;
+      })}
+
+      {/* === INTERLOCKS between shutters === */}
+      {Array.from({length:sh-1},(_,i)=>{
+        const x=IX+(i+1)*shPW-2;
+        return <rect key={"il"+i} x={x} y={IY} width={4} height={IH} rx={1} fill="#999" stroke="#777" strokeWidth={0.4}/>;
+      })}
+
+      {/* === CENTRE DIVIDER for CO === */}
+      {co&&<rect x={IX+IW/2-3} y={FY+FRAME} width={6} height={FH-FRAME*2} rx={1} fill="#aaa" stroke="#888" strokeWidth={0.5}/>}
+
+      {/* === NET DIVIDER === */}
+      {hn&&<rect x={IX+shAreaW-3} y={FY+FRAME} width={6} height={FH-FRAME*2} rx={1} fill="#888" stroke="#666" strokeWidth={0.5}/>}
+
+      {/* === MOSQUITO NET PANELS === */}
+      {hn&&Array.from({length:nc},(_,i)=>{
+        const px=IX+shAreaW+i*ntPW, pw=ntPW;
+        const gx=px+2, gy2=IY+3, gw=pw-4, gh=IH-6;
+        const lineCount=Math.max(5,Math.floor(gh/5));
+        const vCount=Math.max(3,Math.floor(gw/5));
+        return <g key={"n"+i}>
+          <rect x={px} y={IY} width={pw} height={IH} rx={1} fill="#0d2a1a" stroke={nc2} strokeWidth={1}/>
+          {/* mesh grid */}
+          {Array.from({length:lineCount},(_,j)=><line key={"nh"+j} x1={gx+1} y1={gy2+j*(gh/(lineCount-1))} x2={gx+gw-1} y2={gy2+j*(gh/(lineCount-1))} stroke={nc2} strokeWidth={0.6} opacity={0.5}/>)}
+          {Array.from({length:vCount},(_,j)=><line key={"nv"+j} x1={gx+j*(gw/(vCount-1))} y1={gy2} x2={gx+j*(gw/(vCount-1))} y2={gy2+gh} stroke={nc2} strokeWidth={0.6} opacity={0.4}/>)}
+          {/* net outer frame */}
+          <rect x={gx} y={gy2} width={gw} height={gh} rx={1} fill="none" stroke={nc2} strokeWidth={0.8}/>
+          <text x={gx+gw/2} y={gy2+gh/2-3} textAnchor="middle" fill={nc2} fontSize={fsn} fontWeight="bold">NET</text>
+          <text x={gx+gw/2} y={gy2+gh/2+8} textAnchor="middle" fill={nc2} fontSize={size==="sm"?4:7} opacity={0.8}>SS304</text>
+          {/* net wheels */}
+          <circle cx={px+4} cy={IY+IH-1} r={wheelR} fill="#3a7a4a" stroke="#2a5a3a" strokeWidth={0.4}/>
+          <circle cx={px+pw-4} cy={IY+IH-1} r={wheelR} fill="#3a7a4a" stroke="#2a5a3a" strokeWidth={0.4}/>
+        </g>;
+      })}
+
+      {/* === TRACK COUNT indicator dots === */}
+      {Array.from({length:tr},(_,i)=><circle key={"td"+i} cx={FX+4} cy={IY+IH/2+(i-tr/2+0.5)*6} r={size==="sm"?1.5:2} fill={seriesColor||fc} opacity={0.6}/>)}
+
+      {/* === DIMENSION LABEL === */}
+      <text x={PW/2} y={PH-2} textAnchor="middle" fill="#555" fontSize={size==="sm"?7:9}>{dim||type.full}</text>
+    </svg>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════════════════════════════
+function LoginScreen({onLogin}){
+  const [phone,setPhone]=useState("");
+  const [otp,setOtp]=useState("");
+  const [step,setStep]=useState("phone");
+  const [sending,setSending]=useState(false);
+  const [err,setErr]=useState("");
+  const [sentOtp,setSentOtp]=useState("");
+  const send=()=>{
+    if(phone.length!==10||!/^\d+$/.test(phone)){setErr("Enter valid 10-digit number");return;}
+    setErr("");setSending(true);
+    const code=Math.floor(100000+Math.random()*900000).toString();
+    setSentOtp(code);
+    setTimeout(()=>{setSending(false);setStep("otp");alert("Demo OTP: "+code+"\n(Production: sent via SMS to +91 "+phone+")");},1400);
+  };
+  const verify=()=>{if(otp===sentOtp)onLogin(phone);else setErr("Incorrect OTP. Try again.");};
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f1117,#0d2137)",padding:20}}>
+      <div style={{width:"100%",maxWidth:380}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{width:64,height:64,background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,margin:"0 auto 12px"}}>🪟</div>
+          <div style={{fontSize:24,fontWeight:800,color:"#93c5fd"}}>AlumCalc Pro</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:4}}>Alufabb Fenestration • 5 Series</div>
+        </div>
+        <div style={{background:"#1e293b",borderRadius:16,padding:28,border:"1px solid #2d3748"}}>
+          {step==="phone"?<>
+            <div style={{fontSize:17,fontWeight:700,color:"#e2e8f0",marginBottom:4}}>Login with Mobile</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:18}}>Enter 10-digit mobile number</div>
+            <div style={{display:"flex",gap:8,marginBottom:4}}>
+              <div style={{padding:"10px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#94a3b8",fontSize:13,flexShrink:0}}>🇮🇳 +91</div>
+              <input type="tel" maxLength={10} value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,""))}
+                placeholder="9876543210" onKeyDown={e=>e.key==="Enter"&&send()}
+                style={{flex:1,padding:"10px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:16,letterSpacing:2}}/>
+            </div>
+            {err&&<div style={{fontSize:11,color:"#f87171",marginBottom:4}}>{err}</div>}
+            <button onClick={send} disabled={sending}
+              style={{width:"100%",marginTop:14,padding:"13px",background:sending?"#374151":"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:sending?"not-allowed":"pointer"}}>
+              {sending?"Sending...":"Send OTP →"}
+            </button>
+          </>:<>
+            <div style={{fontSize:17,fontWeight:700,color:"#e2e8f0",marginBottom:4}}>Enter OTP</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:18}}>
+              Sent to +91 {phone} &nbsp;<span style={{color:"#3b82f6",cursor:"pointer"}} onClick={()=>{setStep("phone");setOtp("");setErr("");}}>Change</span>
+            </div>
+            <input type="tel" maxLength={6} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,""))}
+              placeholder="● ● ● ● ● ●" onKeyDown={e=>e.key==="Enter"&&verify()}
+              style={{width:"100%",padding:"12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:24,letterSpacing:12,textAlign:"center"}}/>
+            {err&&<div style={{fontSize:11,color:"#f87171",marginTop:5}}>{err}</div>}
+            <button onClick={verify}
+              style={{width:"100%",marginTop:14,padding:"13px",background:"linear-gradient(135deg,#059669,#047857)",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:"pointer"}}>
+              Verify & Login ✓
+            </button>
+            <div style={{textAlign:"center",marginTop:10,fontSize:12,color:"#64748b"}}>
+              Didn't receive? <span style={{color:"#3b82f6",cursor:"pointer"}} onClick={send}>Resend OTP</span>
+            </div>
+          </>}
+        </div>
+        <div style={{textAlign:"center",marginTop:14,fontSize:11,color:"#374151"}}>For business use only • Alufabb Fenestration</div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PDF - SINGLE WINDOW
+// ══════════════════════════════════════════════════════════════════════════════
+function makeSinglePDF(r,qty,cName,pName,co){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const PW=210,m=14;let y=m;
+  doc.setFillColor(13,33,55);doc.rect(0,0,PW,46,"F");
+  doc.setTextColor(147,197,253);doc.setFontSize(18);doc.setFont("helvetica","bold");
+  doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),m,16);
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(148,163,184);
+  let hy=23;
+  if(co&&co.tagline){doc.text(co.tagline,m,hy);hy+=5;}
+  const cparts=[];
+  if(co&&co.phone)cparts.push("Ph: "+co.phone);
+  if(co&&co.email)cparts.push("Email: "+co.email);
+  if(co&&co.website)cparts.push(co.website);
+  if(cparts.length){doc.text(cparts.join("  |  "),m,hy);hy+=5;}
+  if(co&&co.address){doc.text("Address: "+co.address,m,hy);}
+  if(co&&co.gst){doc.setTextColor(100,116,139);doc.text("GST: "+co.gst,PW-m-3,16,"right");}
+  doc.setFillColor(37,99,235);doc.rect(0,46,PW,9,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("WINDOW ESTIMATE",m,53);doc.text("Date: "+new Date().toLocaleDateString("en-IN"),PW-m-38,53);
+  y=61;
+  if(cName||pName){
+    doc.setFillColor(22,33,52);doc.roundedRect(m,y,PW-m*2,16,2,2,"F");
+    doc.setTextColor(226,232,240);doc.setFontSize(9);doc.setFont("helvetica","normal");
+    if(cName)doc.text("Customer: "+cName,m+4,y+7);
+    if(pName)doc.text("Project: "+pName,m+4,y+13);
+    y+=20;
+  }
+  doc.setFillColor(22,33,52);doc.roundedRect(m,y,PW-m*2,28,2,2,"F");
+  doc.setTextColor(147,197,253);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("SPECIFICATIONS",m+4,y+7);
+  doc.setTextColor(226,232,240);doc.setFont("helvetica","normal");
+  doc.text("Series: "+r.series.label,m+4,y+14);doc.text("Width: "+r.w+" mm",m+95,y+14);
+  doc.text("Type: "+r.type.full,m+4,y+20);doc.text("Height: "+r.h+" mm",m+95,y+20);
+  doc.text("Color: "+r.color.label,m+4,y+26);doc.text("Area: "+fn(r.tSq)+" sq.ft | Qty: "+qty,m+95,y+26);
+  y+=32;
+  doc.setTextColor(147,197,253);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("COST BREAKDOWN",m,y+6);y+=10;
+  doc.setFillColor(37,99,235);doc.rect(m,y,PW-m*2,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("ITEM",m+3,y+5);doc.text("AMOUNT",PW-m-3,y+5,"right");y+=7;
+  const rows=[["Aluminium (incl. wastage)",r.alAmt],["Glass",r.glAmt],["Hardware & Fittings",r.hwAmt],["EPDM Rubber Gaskets",r.epAmt],["Labour",r.lbAmt],["Transport",r.transport]];
+  if(r.pcAmt>0)rows.push(["Powder Coating – "+r.color.label,r.pcAmt]);
+  rows.forEach((row,i)=>{
+    doc.setFillColor(i%2===0?30:22,i%2===0?41:33,i%2===0?59:48);doc.rect(m,y,PW-m*2,6,"F");
+    doc.setTextColor(226,232,240);doc.setFont("helvetica","normal");
+    doc.text(row[0],m+3,y+4.5);doc.text(fm(row[1]),PW-m-3,y+4.5,"right");y+=6;
+  });
+  doc.setFillColor(13,33,55);doc.rect(m,y,PW-m*2,9,"F");
+  doc.setTextColor(74,222,128);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("TOTAL (per window)",m+3,y+6.5);doc.text(fm(r.unitTotal),PW-m-3,y+6.5,"right");y+=9;
+  if(qty>1){
+    doc.setFillColor(37,99,235);doc.rect(m,y,PW-m*2,9,"F");
+    doc.setTextColor(255,255,255);doc.text("TOTAL FOR "+qty+" WINDOWS",m+3,y+6.5);doc.text(fm(r.unitTotal*qty),PW-m-3,y+6.5,"right");y+=9;
+  }
+  y+=4;doc.setTextColor(100,116,139);doc.setFontSize(8);doc.setFont("helvetica","normal");
+  doc.text("Rate per sq.ft: "+fm(r.sqR),m,y);y+=12;
+  doc.setFillColor(22,33,52);doc.roundedRect(m,y,PW-m*2,24,2,2,"F");
+  doc.setTextColor(147,197,253);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("TERMS & CONDITIONS",m+4,y+7);
+  doc.setTextColor(148,163,184);doc.setFont("helvetica","normal");doc.setFontSize(8);
+  doc.text("• Valid for 15 days. • 50% advance to confirm order.",m+4,y+14);
+  doc.text("• Prices subject to change based on aluminium market rates.",m+4,y+20);
+  doc.setFillColor(13,33,55);doc.rect(0,282,PW,15,"F");
+  doc.setTextColor(100,116,139);doc.setFontSize(7.5);
+  doc.text((co&&co.name?co.name:"AlumCalc Pro")+" | Generated by AlumCalc Pro",PW/2,290,"center");
+  doc.save("Estimate_"+r.series.label.replace(/ /g,"_")+"_"+new Date().toLocaleDateString("en-IN").replace(/\//g,"-")+".pdf");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PDF - MULTI WINDOW QUOTATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+function hexToRgb(hex,a){
+  hex=hex.replace("#","");
+  if(hex.length===3)hex=hex.split("").map(c=>c+c).join("");
+  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  return [r,g,b];
+}
+const type_tracks_map={"2T2S":2,"3T3S":3,"2T4SCO":2,"3T6SCO":3,"3T2S1N":3,"3T4S2N":3};
+
+function makeMultiPDF(rows,cName,pName,pRef,co){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const PW=210,PH=297,m=12;
+  let y=0;
+
+  // ── COLOR PALETTE ─────────────────────────────────────────────────────────
+  const C={
+    navy:    [15,28,54],
+    navyMid: [22,40,75],
+    navyLt:  [30,55,100],
+    accent:  [41,128,185],   // steel blue
+    accentLt:[86,163,216],
+    gold:    [212,175,55],
+    goldLt:  [240,210,100],
+    green:   [39,174,96],
+    greenLt: [88,214,141],
+    white:   [255,255,255],
+    offWhite:[245,247,250],
+    gray1:   [235,238,243],
+    gray2:   [180,190,205],
+    gray3:   [120,135,155],
+    text:    [30,40,60],
+    textLt:  [90,110,140],
+  };
+  const rgb=(c)=>c;
+  const setFill=c=>doc.setFillColor(...c);
+  const setDraw=c=>doc.setDrawColor(...c);
+  const setTxt=c=>doc.setTextColor(...c);
+
+  // ── DRAW WINDOW DIAGRAM ───────────────────────────────────────────────────
+  function drawWin(r,ox,oy,dw,dh){
+    const{tracks:tr,sh,hasNet:hn,nc=0,co:coW}=r.type;
+    const fc=r.color.hex||"#cccccc";
+    const fRgb=hexToRgb(fc);
+    const FRAME=3,TRK=2.5,SL=2.5;
+    const ix=ox+FRAME,iy=oy+FRAME+TRK,iw=dw-FRAME*2,ih=dh-FRAME*2-TRK-SL;
+    const shAW=hn?iw*0.67:iw, ntAW=hn?iw*0.33:0;
+    const spw=shAW/sh, ntpw=nc>0?ntAW/nc:0;
+    // outer frame fill
+    doc.setFillColor(...fRgb);doc.setDrawColor(90,90,90);doc.setLineWidth(0.3);
+    doc.roundedRect(ox,oy,dw,dh,0.8,0.8,"FD");
+    // track grooves top
+    doc.setFillColor(160,160,160);doc.rect(ix,oy+FRAME,iw,TRK,"F");
+    for(let t=0;t<tr;t++){doc.setDrawColor(200,200,200);doc.setLineWidth(0.15);doc.line(ix,oy+FRAME+0.8+t*0.8,ix+iw,oy+FRAME+0.8+t*0.8);}
+    // track bottom sill
+    doc.setFillColor(155,155,155);doc.rect(ix,iy+ih,iw,SL,"F");
+    for(let t=0;t<tr;t++){doc.setDrawColor(200,200,200);doc.setLineWidth(0.15);doc.line(ix,iy+ih+0.7+t*0.7,ix+iw,iy+ih+0.7+t*0.7);}
+    // shutters
+    for(let si=0;si<sh;si++){
+      const spx=ix+si*spw;
+      const gx=spx+1,gy=iy+1,gw=spw-2,gh=ih-2;
+      // shutter frame
+      doc.setFillColor(...fRgb);doc.setDrawColor(100,100,100);doc.setLineWidth(0.25);
+      doc.rect(spx,iy,spw,ih,"FD");
+      // glass
+      doc.setFillColor(168,216,240);doc.setGState(doc.GState({opacity:0.55}));
+      doc.rect(gx,gy,gw,gh,"F");
+      // glass highlight
+      doc.setFillColor(220,240,255);doc.setGState(doc.GState({opacity:0.4}));
+      doc.rect(gx+0.5,gy+0.5,gw*0.45,gh*0.35,"F");
+      doc.setGState(doc.GState({opacity:1}));
+      // interlock
+      if(si<sh-1){doc.setFillColor(130,130,130);doc.rect(spx+spw-1,iy,2,ih,"F");}
+      // wheel dots
+      doc.setFillColor(80,80,80);doc.circle(spx+2,iy+ih-0.5,0.8,"F");
+      doc.circle(spx+spw-2,iy+ih-0.5,0.8,"F");
+    }
+    // centre divider for CO
+    if(coW){doc.setFillColor(140,140,140);doc.rect(ix+iw/2-1,oy+FRAME,2,dh-FRAME*2,"F");}
+    // net panels
+    if(hn){
+      const ntX=ix+shAW;
+      // divider
+      doc.setFillColor(110,110,110);doc.rect(ntX-1.5,oy+FRAME,3,dh-FRAME*2,"F");
+      for(let ni=0;ni<nc;ni++){
+        const npx=ntX+ni*ntpw,ngy=iy+1,ngw=ntpw-2,ngh=ih-2;
+        doc.setFillColor(13,50,30);doc.rect(npx,iy,ntpw,ih,"F");
+        doc.setDrawColor(70,180,110);doc.setLineWidth(0.2);
+        for(let ml=0;ml<8;ml++)doc.line(npx+1,ngy+ml*(ngh/7),npx+ntpw-1,ngy+ml*(ngh/7));
+        for(let vl=0;vl<4;vl++)doc.line(npx+1+vl*(ngw/3),ngy,npx+1+vl*(ngw/3),ngy+ngh);
+        doc.rect(npx,iy,ntpw,ih,"D");
+      }
+    }
+    // handle
+    const hx=ix+shAW-1.5,hy=iy+ih/2-4;
+    doc.setFillColor(90,90,90);doc.roundedRect(hx,hy,2,8,0.5,0.5,"F");
+    doc.setFillColor(130,130,130);doc.roundedRect(hx-0.5,hy+1.5,3,5,0.5,0.5,"F");
+  }
+
+  // ── PAGE HELPERS ──────────────────────────────────────────────────────────
+  function checkPage(need){if(y+need>PH-18){addPage();}}
+  function addPage(){
+    drawFooter();
+    doc.addPage();
+    y=0;
+    drawPageHeader();
+  }
+  function drawFooter(){
+    // Footer drawn at end on all pages — skip here, done in final loop
+  }
+  function drawPageHeader(){
+    setFill(C.navy);doc.rect(0,0,PW,14,"F");
+    setFill(C.gold);doc.rect(0,0,5,14,"F");
+    setFill(C.accent);doc.rect(5,0,3,14,"F");
+    setTxt(C.white);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text((co&&co.name?co.name.toUpperCase():"WINDOW QUOTATION"),14,9);
+    setTxt(C.accentLt);doc.setFontSize(7);doc.setFont("helvetica","normal");
+    if(cName)doc.text("Customer: "+cName,14,13);
+    if(pRef)doc.text("Ref: "+pRef,PW-m,9,{align:"right"});
+    setFill(C.accent);doc.rect(0,14,PW,1.5,"F");
+    y=20;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // PAGE 1 HEADER
+  // ════════════════════════════════════════════════════════════════════════
+  // Top navy band
+  setFill(C.navy);doc.rect(0,0,PW,52,"F");
+  // Gold accent left bar
+  setFill(C.gold);doc.rect(0,0,5,52,"F");
+  // Blue accent stripe
+  setFill(C.accent);doc.rect(5,0,3,52,"F");
+
+  // Company name
+  setTxt(C.white);doc.setFontSize(20);doc.setFont("helvetica","bold");
+  doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),14,17);
+
+  // Tagline
+  if(co&&co.tagline){
+    setTxt(C.accentLt);doc.setFontSize(8);doc.setFont("helvetica","normal");
+    doc.text(co.tagline,14,25);
+  }
+
+  // Contact info row
+  setTxt(C.gray2);doc.setFontSize(7.5);
+  let cx2=14,cy=co&&co.tagline?32:27;
+  if(co&&co.phone){doc.text("📞 "+co.phone,cx2,cy);cx2+=50;}
+  if(co&&co.email){doc.text("✉ "+co.email,cx2,cy);cx2+=65;}
+  if(co&&co.website){doc.text("🌐 "+co.website,cx2,cy);}
+  if(co&&co.address){setTxt(C.gray3);doc.text("📍 "+co.address,14,cy+5);}
+
+  // GST top right
+  if(co&&co.gst){
+    setFill(C.navyLt);doc.roundedRect(PW-m-45,5,43,12,2,2,"F");
+    setTxt(C.accentLt);doc.setFontSize(7);doc.setFont("helvetica","bold");
+    doc.text("GST",PW-m-43,10);
+    setTxt(C.white);doc.setFontSize(7.5);
+    doc.text(co.gst,PW-m-43,15);
+  }
+
+  // QUOTATION title bar
+  setFill(C.accent);doc.rect(0,52,PW,12,"F");
+  setFill(C.gold);doc.rect(0,52,5,12,"F");
+  setFill(C.navyMid);doc.rect(5,52,3,12,"F");
+  setTxt(C.white);doc.setFontSize(11);doc.setFont("helvetica","bold");
+  doc.text("WINDOW QUOTATION",14,60);
+  setTxt(C.offWhite);doc.setFontSize(8);doc.setFont("helvetica","normal");
+  doc.text("Date: "+new Date().toLocaleDateString("en-IN"),PW-m,60,"right");
+
+  y=68;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // CUSTOMER & PROJECT CARD
+  // ════════════════════════════════════════════════════════════════════════
+  setFill(C.gray1);doc.roundedRect(m,y,PW-m*2,26,2,2,"F");
+  setFill(C.accent);doc.rect(m,y,3,26,"F");
+  setTxt(C.accent);doc.setFontSize(7);doc.setFont("helvetica","bold");
+  doc.text("CUSTOMER DETAILS",m+6,y+6);
+  setTxt(C.text);doc.setFontSize(9);doc.setFont("helvetica","bold");
+  if(cName)doc.text(cName,m+6,y+13);
+  setTxt(C.textLt);doc.setFontSize(8);doc.setFont("helvetica","normal");
+  if(pName)doc.text(pName,m+6,y+20);
+  // right side
+  setTxt(C.accent);doc.setFontSize(7);doc.setFont("helvetica","bold");
+  doc.text("QUOTE REFERENCE",PW/2+10,y+6);
+  setTxt(C.text);doc.setFontSize(9);doc.setFont("helvetica","bold");
+  if(pRef)doc.text(pRef,PW/2+10,y+13);
+  setTxt(C.textLt);doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  doc.text("Valid for 15 days",PW/2+10,y+20);
+  // vertical divider
+  setDraw(C.gray2);doc.setLineWidth(0.3);doc.line(PW/2+6,y+4,PW/2+6,y+22);
+  y+=32;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // WINDOW SUMMARY TABLE
+  // ════════════════════════════════════════════════════════════════════════
+  // Section heading
+  setFill(C.navyMid);doc.roundedRect(m,y,PW-m*2,8,1,1,"F");
+  setFill(C.gold);doc.rect(m,y,3,8,"F");
+  setTxt(C.white);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("WINDOW SCHEDULE",m+6,y+5.5);
+  y+=8;
+
+  // ── TABLE COLUMN LAYOUT ──────────────────────────────────────────────────
+  // Total usable width: PW - m*2 = 210-24 = 186mm
+  // Columns: # | Location | Series+Type | W | H | Sqft | Qty | Color | Unit₹ | Total₹
+  // Widths:  6 |    28    |     38      | 14| 14|  12  |  8  |  18   |  28   |  30
+  // Total:   6+28+38+14+14+12+8+18+28+30 = 196 ... use 182 with 2px left bar
+  // All positions relative to m (left margin = 12)
+  const TH=7.5;
+  const TW=PW-m*2; // 186mm
+  // col start positions (absolute, from left edge of page)
+  const C_NO   = m+2;   // width 7
+  const C_LOC  = m+9;   // width 28
+  const C_TYPE = m+37;  // width 34
+  const C_W    = m+71;  // width 13  right-aligned end = m+84
+  const C_H    = m+84;  // width 13  right-aligned end = m+97
+  const C_SQ   = m+97;  // width 12  right-aligned end = m+109
+  const C_QTY  = m+109; // width 10  center
+  const C_COL  = m+119; // width 18
+  const C_UNIT = m+137; // width 25  right-aligned end = m+162
+  const C_TOT  = m+162; // width 24  right-aligned end = m+186 = PW-m
+
+  // Header row
+  setFill(C.accent);doc.rect(m,y,TW,TH,"F");
+  setFill(C.navyMid);doc.rect(m,y,2,TH,"F"); // left border
+  setTxt(C.white);doc.setFontSize(6.5);doc.setFont("helvetica","bold");
+  doc.text("#",           C_NO+3,  y+5, {align:"center"});
+  doc.text("Location",    C_LOC,   y+5);
+  doc.text("Series / Type", C_TYPE, y+5);
+  doc.text("W mm",        C_W+13,  y+5, {align:"right"});
+  doc.text("H mm",        C_H+13,  y+5, {align:"right"});
+  doc.text("Sqft",        C_SQ+12, y+5, {align:"right"});
+  doc.text("Qty",         C_QTY+5, y+5, {align:"center"});
+  doc.text("Color",       C_COL,   y+5);
+  doc.text("Unit ₹",      C_UNIT+25,y+5,{align:"right"});
+  doc.text("Total ₹",     C_TOT+24, y+5,{align:"right"});
+  // vertical dividers in header
+  [C_LOC,C_TYPE,C_W,C_H,C_SQ,C_QTY,C_COL,C_UNIT,C_TOT].forEach(cx=>{
+    setFill([255,255,255]);doc.setFillColor(255,255,255,0.15);
+    doc.setDrawColor(255,255,255);doc.setLineWidth(0.15);doc.line(cx-1,y+1,cx-1,y+TH-1);
+  });
+  y+=TH;
+
+  let GT=0,GS=0,GQ=0;
+  const validRows=rows.filter(r=>r.calc);
+  validRows.forEach((row,idx)=>{
+    checkPage(7);
+    const r=row.calc,q=row.qty||1,rt=r.unitTotal*q;
+    GT+=rt;GS+=r.tSq*q;GQ+=q;
+    const ROW_H=7;
+    const isEven=idx%2===0;
+    // row background
+    setFill(isEven?C.offWhite:C.white);
+    doc.rect(m,y,TW,ROW_H,"F");
+    // series color left bar
+    doc.setFillColor(...hexToRgb(r.series.color||"#3b82f6"));
+    doc.rect(m,y,2,ROW_H,"F");
+    // subtle vertical column dividers
+    setDraw(C.gray1);doc.setLineWidth(0.15);
+    [C_LOC,C_TYPE,C_W,C_H,C_SQ,C_QTY,C_COL,C_UNIT,C_TOT].forEach(cx=>doc.line(cx-1,y,cx-1,y+ROW_H));
+
+    doc.setFontSize(7);
+    // # (centered in col)
+    setTxt(C.textLt);doc.setFont("helvetica","normal");
+    doc.text(""+(idx+1), C_NO+3, y+4.8, {align:"center"});
+    // Location
+    doc.setFont("helvetica","bold");setTxt(C.text);
+    doc.text((row.location||"Window "+(idx+1)).substring(0,12), C_LOC, y+4.8);
+    // Series + Type
+    doc.setFont("helvetica","normal");setTxt(C.textLt);
+    doc.text((r.series.label+" "+r.type.label).substring(0,18), C_TYPE, y+4.8);
+    // W mm — right aligned to end of column
+    setTxt(C.text);
+    doc.text(""+r.w,        C_W+13,   y+4.8, {align:"right"});
+    doc.text(""+r.h,        C_H+13,   y+4.8, {align:"right"});
+    doc.text(""+fn(r.tSq),  C_SQ+12,  y+4.8, {align:"right"});
+    // Qty centered
+    doc.text(""+q,          C_QTY+5,  y+4.8, {align:"center"});
+    // Color swatch + label
+    doc.setFillColor(...hexToRgb(r.color.hex||"#F0F0EB"));
+    doc.setDrawColor(160,160,160);doc.setLineWidth(0.2);
+    doc.circle(C_COL+2.5, y+3.5, 2, "FD");
+    setTxt(C.textLt);
+    doc.text(r.color.label.substring(0,8), C_COL+6, y+4.8);
+    // Unit price — right aligned to end of column
+    setTxt(C.text);doc.setFont("helvetica","normal");
+    doc.text(fm(r.unitTotal), C_UNIT+25, y+4.8, {align:"right"});
+    // Row total — right aligned, green bold
+    setTxt(C.green);doc.setFont("helvetica","bold");
+    doc.text(fm(rt),          C_TOT+24,  y+4.8, {align:"right"});
+    // bottom separator
+    setDraw(C.gray1);doc.setLineWidth(0.2);
+    doc.line(m, y+ROW_H, m+TW, y+ROW_H);
+    y+=ROW_H;
+  });
+
+  // Grand total bar
+  y+=1;
+  setFill(C.navy);doc.rect(m,y,TW,13,"F");
+  setFill(C.gold);doc.rect(m,y,3,13,"F");
+  setFill(C.accent);doc.rect(m+3,y,2,13,"F");
+  setTxt(C.accentLt);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("GRAND TOTAL",m+8,y+5.5);
+  setTxt(C.gray2);doc.setFontSize(7);doc.setFont("helvetica","normal");
+  doc.text(GQ+" window"+(GQ>1?"s":"")+"   |   "+fn(GS)+" sq.ft total   |   Avg: "+fm(Math.round(GT/Math.max(GS,1)))+"/sqft",m+8,y+10.5);
+  setTxt(C.goldLt);doc.setFontSize(14);doc.setFont("helvetica","bold");
+  doc.text(fm(GT), m+TW, y+10, {align:"right"});
+  y+=18;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // COST SUMMARY BREAKDOWN (pie-chart style horizontal bars)
+  // ════════════════════════════════════════════════════════════════════════
+  checkPage(60);
+  setFill(C.navyMid);doc.roundedRect(m,y,PW-m*2,8,1,1,"F");
+  setFill(C.gold);doc.rect(m,y,3,8,"F");
+  setTxt(C.white);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("COST DISTRIBUTION – ALL WINDOWS COMBINED",m+6,y+5.5);
+  y+=10;
+
+  // Aggregate costs across all windows
+  let totAl=0,totGl=0,totHw=0,totEp=0,totLb=0,totTr=0,totPc=0;
+  validRows.forEach(row=>{
+    const r=row.calc,q=row.qty||1;
+    totAl+=r.alAmt*q;totGl+=r.glAmt*q;totHw+=r.hwAmt*q;
+    totEp+=r.epAmt*q;totLb+=r.lbAmt*q;totTr+=r.transport*q;totPc+=r.pcAmt*q;
+  });
+  const costItems=[
+    {label:"Aluminium",val:totAl,color:C.accent},
+    {label:"Glass",val:totGl,color:[52,168,235]},
+    {label:"Hardware",val:totHw,color:[155,89,182]},
+    {label:"EPDM Rubber",val:totEp,color:[230,126,34]},
+    {label:"Labour",val:totLb,color:[39,174,96]},
+    {label:"Transport",val:totTr,color:[127,140,141]},
+  ];
+  if(totPc>0)costItems.push({label:"Powder Coating",val:totPc,color:C.gold});
+  const barW=PW-m*2-60;
+  costItems.forEach((item,i)=>{
+    const pct=GT>0?item.val/GT:0;
+    const bx=m+58, bh=4.5, by=y+i*7;
+    // label
+    setTxt(C.text);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+    doc.text(item.label,m,by+3.5);
+    // amount
+    setTxt(C.textLt);doc.setFont("helvetica","normal");
+    doc.text(fm(item.val),m+57,by+3.5,{align:"right"});
+    // bar bg
+    setFill(C.gray1);doc.roundedRect(bx,by,barW,bh,1,1,"F");
+    // bar fill
+    doc.setFillColor(...item.color);
+    doc.roundedRect(bx,by,Math.max(2,barW*pct),bh,1,1,"F");
+    // pct label
+    setTxt(C.textLt);doc.setFontSize(6.5);
+    doc.text(Math.round(pct*100)+"%",bx+barW+2,by+3.5);
+  });
+  y+=costItems.length*7+6;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // DETAILED BREAKDOWN PER WINDOW (with diagrams)
+  // ════════════════════════════════════════════════════════════════════════
+  checkPage(30);
+  setFill(C.navyMid);doc.roundedRect(m,y,PW-m*2,8,1,1,"F");
+  setFill(C.gold);doc.rect(m,y,3,8,"F");
+  setTxt(C.white);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("DETAILED BREAKDOWN PER WINDOW",m+6,y+5.5);
+  y+=12;
+
+  validRows.forEach((row,idx)=>{
+    const r=row.calc,q=row.qty||1;
+    const DIAG_W=45,DIAG_H=34,CARD_H=DIAG_H+4;
+    checkPage(CARD_H+50);
+
+    // Window card header
+    setFill(C.navy);doc.roundedRect(m,y,PW-m*2,8,1,1,"F");
+    // series color dot
+    doc.setFillColor(...hexToRgb(r.series.color||"#3b82f6"));
+    doc.circle(m+5,y+4,2,"F");
+    setTxt(C.white);doc.setFontSize(8);doc.setFont("helvetica","bold");
+    const loc=row.location||"Window "+(idx+1);
+    doc.text(loc,m+10,y+5.5);
+    setTxt(C.accentLt);doc.setFontSize(7);doc.setFont("helvetica","normal");
+    doc.text(r.series.label+" | "+r.type.full+" | "+r.w+"×"+r.h+" mm | Color: "+r.color.label+" | Qty: "+q,m+10,y+11.5);
+    // Window number badge
+    setFill(C.accent);doc.roundedRect(PW-m-14,y+1,12,6,1,1,"F");
+    setTxt(C.white);doc.setFontSize(7);doc.setFont("helvetica","bold");
+    doc.text("#"+(idx+1),PW-m-8,y+5,{align:"center"});
+    y+=14;
+
+    // Window diagram (right side)
+    const bpX=m,bpW=PW-m*2-DIAG_W-4;
+    drawWin(r,PW-m-DIAG_W,y,DIAG_W,DIAG_H);
+    // dim label under diagram
+    setTxt(C.textLt);doc.setFontSize(6);
+    doc.text(r.w+"×"+r.h+" mm",PW-m-DIAG_W+DIAG_W/2,y+DIAG_H+2.5,{align:"center"});
+
+    // Cost breakdown rows (left of diagram)
+    const brs=[
+      {label:"Aluminium Sections",val:r.alAmt,sub:"Net "+fn(r.twt,1)+" kg + 10% wastage",color:C.accent},
+      {label:"Glass (5mm Clear)",val:r.glAmt,sub:fn(r.tSq)+" sq.ft",color:[52,168,235]},
+      {label:"Hardware & Fittings",val:r.hwAmt,sub:"Bearings, locks, silicon...",color:[155,89,182]},
+      {label:"EPDM Rubber Gaskets",val:r.epAmt,sub:fn(r.totEp,1)+" running ft",color:[230,126,34]},
+      {label:"Labour",val:r.lbAmt,sub:fn(r.tSq)+" sqft × ₹"+r.lbR,color:C.green},
+      {label:"Transport",val:r.transport,sub:"Fixed charge",color:[127,140,141]},
+    ];
+    if(r.pcAmt>0)brs.push({label:"Powder Coating – "+r.color.label,val:r.pcAmt,sub:"₹"+fn(r.pcR,0)+"/sqft",color:C.gold});
+
+    let by=y;
+    const rowH=(DIAG_H-2)/brs.length;
+    brs.forEach((br,bi)=>{
+      const ry=by+bi*rowH;
+      setFill(bi%2===0?C.offWhite:C.white);
+      doc.rect(bpX,ry,bpW,rowH,"F");
+      // color dot
+      doc.setFillColor(...br.color);doc.circle(bpX+3,ry+rowH/2,1.2,"F");
+      // label
+      setTxt(C.text);doc.setFontSize(7);doc.setFont("helvetica","bold");
+      doc.text(br.label,bpX+7,ry+rowH/2+0.5);
+      // sub
+      if(rowH>5){setTxt(C.textLt);doc.setFontSize(5.5);doc.setFont("helvetica","normal");
+      doc.text(br.sub,bpX+7,ry+rowH/2+3.5);}
+      // value
+      setTxt(C.text);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+      doc.text(fm(br.val),bpX+bpW-2,ry+rowH/2+1,{align:"right"});
+    });
+    y+=DIAG_H+4;
+
+    // Unit total + qty total
+    setFill(C.navy);doc.roundedRect(m,y,PW-m*2,9,1,1,"F");
+    setTxt(C.gray2);doc.setFontSize(7);doc.setFont("helvetica","normal");
+    doc.text("Unit price: "+fm(r.unitTotal)+"   ×   "+q+" window"+(q>1?"s":""),m+4,y+4);
+    doc.text(fn(r.tSq,1)+" sqft  @  "+fm(r.sqR)+"/sqft",m+4,y+8);
+    setTxt(C.goldLt);doc.setFontSize(10);doc.setFont("helvetica","bold");
+    doc.text(fm(r.unitTotal*q),PW-m,y+7,{align:"right"});
+    y+=13;
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // TERMS & GRAND SUMMARY
+  // ════════════════════════════════════════════════════════════════════════
+  checkPage(50);
+  y+=2;
+
+  // Grand summary box
+  setFill(C.navy);doc.roundedRect(m,y,PW-m*2,28,2,2,"F");
+  setFill(C.gold);doc.rect(m,y,4,28,"F");
+  setFill(C.accent);doc.rect(m+4,y,3,28,"F");
+  setTxt(C.accentLt);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+  doc.text("GRAND TOTAL SUMMARY",m+10,y+7);
+  setTxt(C.gray2);doc.setFontSize(7);doc.setFont("helvetica","normal");
+  doc.text("Total Windows: "+GQ+"   |   Total Area: "+fn(GS)+" sq.ft   |   Avg. Rate: "+fm(GT/Math.max(GS,1))+"/sqft",m+10,y+13);
+  setTxt(C.white);doc.setFontSize(7);
+  doc.text("TOTAL AMOUNT",m+10,y+20);
+  setTxt(C.goldLt);doc.setFontSize(16);doc.setFont("helvetica","bold");
+  doc.text(fm(GT),PW-m,y+24,{align:"right"});
+  y+=32;
+
+  // Terms
+  setFill(C.gray1);doc.roundedRect(m,y,PW-m*2,24,2,2,"F");
+  setFill(C.accent);doc.rect(m,y,3,24,"F");
+  setTxt(C.accent);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+  doc.text("TERMS & CONDITIONS",m+6,y+6);
+  setTxt(C.textLt);doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+  const terms=[
+    "This quotation is valid for 15 days from the date of issue.",
+    "50% advance payment required to confirm the order.",
+    "Prices are subject to change based on prevailing aluminium market rates.",
+    "Installation timeline to be confirmed separately upon order confirmation.",
+  ];
+  terms.forEach((t,i)=>doc.text("• "+t,m+6,y+12+i*5));
+  y+=28;
+
+  // Signature block
+  checkPage(24);
+  setDraw(C.gray2);doc.setLineWidth(0.3);
+  const sw=60;
+  doc.line(m,y+18,m+sw,y+18);
+  doc.line(PW-m-sw,y+18,PW-m,y+18);
+  setTxt(C.textLt);doc.setFontSize(7);
+  doc.text("Authorized Signature",m+sw/2,y+22,{align:"center"});
+  doc.text("Customer Acceptance",PW-m-sw/2,y+22,{align:"center"});
+  setTxt(C.text);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text(co&&co.name?co.name:"",m+sw/2,y+10,{align:"center"});
+
+  // Draw footers on all pages
+  const totalPages=doc.internal.getNumberOfPages();
+  for(let p=1;p<=totalPages;p++){
+    doc.setPage(p);
+    setFill(C.navy);doc.rect(0,PH-12,PW,12,"F");
+    setFill(C.gold);doc.rect(0,PH-12,5,12,"F");
+    setTxt(C.gray2);doc.setFontSize(7);doc.setFont("helvetica","normal");
+    doc.text((co&&co.name?co.name:"AlumCalc Pro")+" | Window Quotation",m,PH-5);
+    doc.text("Page "+p+" of "+totalPages,PW-m,PH-5,{align:"right"});
+    setTxt(C.accentLt);doc.text(new Date().toLocaleDateString("en-IN"),PW/2,PH-5,{align:"center"});
+  }
+
+  doc.save("Quotation_"+(cName||"AlumCalc")+"_"+new Date().toLocaleDateString("en-IN").replace(/\//g,"-")+".pdf");
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ══════════════════════════════════════════════════════════════════════════════
+const S={
+  card:{background:"#1e293b",border:"1px solid #2d3748",borderRadius:12,padding:14},
+  inp:{width:"100%",padding:"7px 9px",background:"#0f1117",border:"1px solid #374151",borderRadius:6,color:"#e2e8f0",fontSize:12,boxSizing:"border-box"},
+  sel:{width:"100%",padding:"7px 9px",background:"#0f1117",border:"1px solid #374151",borderRadius:6,color:"#e2e8f0",fontSize:12},
+  lbl:{fontSize:10,color:"#64748b",fontWeight:600,display:"block",marginBottom:3,marginTop:6},
+  th:{padding:"7px 8px",color:"#64748b",fontWeight:600,fontSize:11,borderBottom:"1px solid #1e3a5f",whiteSpace:"nowrap"},
+  td:{padding:"5px 8px",fontSize:11,borderBottom:"1px solid #1e293b",verticalAlign:"middle"},
+};
+function Card({title,children,style={}}){return<div style={{...S.card,...style}}>{title&&<div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderBottom:"1px solid #2d3748",paddingBottom:7}}>{title}</div>}{children}</div>;}
+function SR({label,value,hi}){return<div style={{display:"flex",justifyContent:"space-between",fontSize:hi?13:12,fontWeight:hi?700:400,marginBottom:4}}><span style={{color:hi?"#93c5fd":"#94a3b8"}}>{label}</span><span style={{color:hi?"#4ade80":"#e2e8f0"}}>{value}</span></div>;}
+function ColPicker({sel,onChange,sqf,baseR}){
+  const col=COLORS.find(c=>c.id===sel)||COLORS[0];
+  return <div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}}>
+      {COLORS.map(c=><div key={c.id} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+        <div className={"sw"+(sel===c.id?" on":"")} style={{background:c.hex,boxShadow:c.id==="white"?"inset 0 0 0 1px #777":""}} onClick={()=>onChange(c.id)} title={c.label}/>
+        <span style={{fontSize:9,color:"#94a3b8"}}>{c.label}</span>
+        {c.add>0&&<span style={{fontSize:8,color:"#fbbf24"}}>{"+₹"+c.add}</span>}
+      </div>)}
+    </div>
+    {sqf>0&&<div style={{padding:"5px 10px",background:"#0d2137",borderRadius:6,fontSize:11,display:"flex",justifyContent:"space-between"}}>
+      <span style={{color:"#94a3b8"}}>{"Powder Coating "+fn(sqf)+" sqft × ₹"+((baseR||0)+col.add).toFixed(0)}</span>
+      <span style={{color:"#fbbf24",fontWeight:700}}>{fm(sqf*((baseR||0)+col.add))}</span>
+    </div>}
+  </div>;
+}
+function SeriesBar({sel,onChange}){
+  return <div style={{display:"flex",gap:7,overflowX:"auto",paddingBottom:2}} className="sb">
+    {Object.values(SERIES).map(s=>(
+      <button key={s.id} className="series-pill"
+        onClick={()=>onChange(s.id)}
+        style={{borderColor:sel===s.id?s.color:"#374151",background:sel===s.id?s.color+"22":"transparent",color:sel===s.id?s.color:"#9ca3af"}}>
+        {s.label}
+      </button>
+    ))}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SINGLE CALCULATOR TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function CalcTab({rates,co}){
+  const [sid,setSid]=useState("29slim");
+  const [tid,setTid]=useState("2T2S");
+  const [W,setW]=useState("");
+  const [H,setH]=useState("");
+  const [lock,setLock]=useState("concealed");
+  const [cid,setCid]=useState("white");
+  const [res,setRes]=useState(null);
+  const [qty,setQty]=useState(1);
+  const [dt,setDt]=useState("alum");
+  const [cName,setCName]=useState("");
+  const [pName,setPName]=useState("");
+
+  const series=SERIES[sid];
+  const availTypes=ALL_TYPES.filter(t=>series.types.includes(t.id));
+  const type=availTypes.find(t=>t.id===tid)||availTypes[0];
+  const color=COLORS.find(c=>c.id===cid)||COLORS[0];
+
+  const handleSeries=(s)=>{setSid(s);setRes(null);const sv=SERIES[s];if(!sv.types.includes(tid))setTid(sv.types[0]);};
+
+  const preview=useMemo(()=>{
+    if(!W||!H)return null;
+    return doCalc(W,H,type,series,rates,lock,cid);
+  },[W,H,tid,sid,rates,lock,cid]);
+
+  return <div style={{display:"grid",gridTemplateColumns:"350px 1fr",gap:14}} className="mg">
+    {/* LEFT */}
+    <div style={{display:"flex",flexDirection:"column",gap:11}}>
+
+      {/* Series selector */}
+      <Card title="Select Series">
+        <SeriesBar sel={sid} onChange={handleSeries}/>
+        <div style={{marginTop:8,padding:"6px 10px",background:series.color+"11",borderRadius:6,border:"1px solid "+series.color+"33",fontSize:11,color:series.color,fontWeight:600}}>
+          ● {series.label} Series — {series.types.length} window types available
+        </div>
+      </Card>
+
+      {/* Window Preview */}
+      <Card title="Window Preview">
+        <WinDiag type={type} colorHex={color.hex} W={W} H={H} seriesColor={series.color}/>
+        <div style={{marginTop:6,textAlign:"center",fontSize:11,color:"#64748b"}}>{type.full}</div>
+      </Card>
+
+      {/* Config */}
+      <Card title="Configuration">
+        <label style={S.lbl}>Window Type</label>
+        <select value={type.id} onChange={e=>{setTid(e.target.value);setRes(null);}} style={S.sel}>
+          {availTypes.map(t=><option key={t.id} value={t.id}>{t.full}</option>)}
+        </select>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div><label style={S.lbl}>Width (mm)</label><input type="number" value={W} onChange={e=>{setW(e.target.value);setRes(null);}} placeholder="e.g. 2000" style={S.inp}/></div>
+          <div><label style={S.lbl}>Height (mm)</label><input type="number" value={H} onChange={e=>{setH(e.target.value);setRes(null);}} placeholder="e.g. 1500" style={S.inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div><label style={S.lbl}>Quantity</label><input type="number" value={qty} min={1} onChange={e=>setQty(+e.target.value)} style={S.inp}/></div>
+          <div><label style={S.lbl}>Lock Type</label>
+            <select value={lock} onChange={e=>setLock(e.target.value)} style={S.sel}>
+              <option value="concealed">Concealed Lock</option>
+              <option value="mp">Multi-Point Lock</option>
+            </select>
+          </div>
+        </div>
+        {preview&&<div style={{marginTop:8,padding:"7px 10px",background:series.color+"11",borderRadius:7,border:"1px solid "+series.color+"33",fontSize:11,color:"#93c5fd"}}>
+          <div style={{display:"flex",justifyContent:"space-between"}}><span>Area:</span><strong>{fn(preview.tSq)} sq.ft</strong></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span>KPA:</span><strong>{series.hasKPA?(preview.isKPA?"Yes (H>1800mm)":"No"):"N/A"}</strong></div>
+        </div>}
+      </Card>
+
+      <Card title="🎨 Colour">
+        <ColPicker sel={cid} onChange={c=>{setCid(c);setRes(null);}} sqf={preview?preview.tSq:0} baseR={rates.pc||0}/>
+      </Card>
+
+      <Card title="👤 Customer (for PDF)">
+        <label style={S.lbl}>Customer Name</label>
+        <input value={cName} onChange={e=>setCName(e.target.value)} placeholder="e.g. Mr. Sharma" style={S.inp}/>
+        <label style={S.lbl}>Project / Site</label>
+        <input value={pName} onChange={e=>setPName(e.target.value)} placeholder="e.g. Sharma Residence" style={S.inp}/>
+      </Card>
+
+      <button onClick={()=>setRes(preview)} disabled={!preview}
+        style={{width:"100%",padding:"12px",background:preview?"linear-gradient(135deg,"+series.color+","+series.color+"bb)":"#374151",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:preview?"pointer":"not-allowed"}}>
+        {preview?"📊 Generate Estimate":"Enter dimensions above"}
+      </button>
+    </div>
+
+    {/* RIGHT */}
+    <div>
+      {!res&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:420,textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:12}}>🪟</div>
+        <div style={{fontSize:16,fontWeight:600,color:"#6b7280"}}>Select Series & Configure</div>
+        <div style={{fontSize:12,marginTop:8,color:"#4b5563",maxWidth:280}}>Choose series, enter dimensions and click Generate Estimate</div>
+      </div>}
+
+      {res&&<div className="fi">
+        {/* Summary card */}
+        <Card style={{marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:res.series.color}}/>
+            <span style={{fontSize:12,fontWeight:700,color:res.series.color}}>{res.series.label}</span>
+            <span style={{fontSize:11,color:"#64748b"}}>• {res.type.full}</span>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:14,alignItems:"start"}}>
+            <div>
+              <SR label="Aluminium" value={fm(res.alAmt)}/>
+              <SR label="Glass" value={fm(res.glAmt)}/>
+              <SR label="Hardware" value={fm(res.hwAmt)}/>
+              <SR label="EPDM Rubber" value={fm(res.epAmt)}/>
+              <SR label="Labour" value={fm(res.lbAmt)}/>
+              <SR label="Transport" value={fm(res.transport)}/>
+              {res.pcAmt>0&&<SR label={"Powder Coating ("+res.color.label+")"} value={fm(res.pcAmt)}/>}
+            </div>
+            <div style={{background:"#0d2137",borderRadius:10,padding:14,textAlign:"center",minWidth:140}}>
+              <div style={{fontSize:10,color:"#64748b",marginBottom:3}}>Per Window</div>
+              <div style={{fontSize:22,fontWeight:800,color:"#4ade80"}}>{fm(res.unitTotal)}</div>
+              <div style={{fontSize:10,color:"#64748b",marginTop:3}}>{fn(res.tSq)} sqft</div>
+              <div style={{fontSize:10,color:"#64748b"}}>{fm(res.sqR)}/sqft</div>
+              {qty>1&&<>
+                <div style={{borderTop:"1px solid #1e3a5f",margin:"8px 0"}}/>
+                <div style={{fontSize:10,color:"#64748b"}}>{"× "+qty+" windows"}</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#93c5fd"}}>{fm(res.unitTotal*qty)}</div>
+              </>}
+              <div style={{marginTop:8,padding:"3px 8px",background:res.color.hex==="#F0F0EB"?"#374151":res.color.hex+"33",border:"1px solid "+res.color.hex,borderRadius:20,fontSize:9,color:res.color.hex==="#2a2a2a"?"#e2e8f0":res.color.hex}}>{"● "+res.color.label}</div>
+            </div>
+          </div>
+          <button onClick={()=>makeSinglePDF(res,qty,cName,pName,co)}
+            style={{width:"100%",marginTop:12,padding:"10px",background:"linear-gradient(135deg,#059669,#047857)",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            📄 Download PDF Estimate
+          </button>
+        </Card>
+
+        {/* Detail tabs */}
+        <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap"}}>
+          {["alum","glass","hardware","rubber","labour"].map(t=><button key={t} onClick={()=>setDt(t)}
+            style={{padding:"5px 11px",borderRadius:6,border:"1px solid",cursor:"pointer",fontSize:11,fontWeight:600,background:dt===t?res.series.color:"#1e293b",borderColor:dt===t?res.series.color:"#374151",color:dt===t?"#fff":"#9ca3af"}}>
+            {t==="alum"?"Aluminium":t==="rubber"?"EPDM":t.charAt(0).toUpperCase()+t.slice(1)}
+          </button>)}
+        </div>
+
+        {dt==="alum"&&<Card title="Aluminium Sections"><div style={{overflowX:"auto"}}>
+          <table><thead><tr>{["Section","Size mm","Qty","Mtrs","Wt/m","Total kg","Amount"].map(h=><th key={h} style={{...S.th,textAlign:h==="Section"?"left":"right"}}>{h}</th>)}</tr></thead>
+          <tbody>{res.secs.map((s,i)=><tr key={i}>
+            <td style={{...S.td,color:"#93c5fd"}}>{s.n}</td><td style={{...S.td,textAlign:"right"}}>{fn(s.sz,0)}</td>
+            <td style={{...S.td,textAlign:"right"}}>{s.q}</td><td style={{...S.td,textAlign:"right"}}>{fn(s.mtr)}</td>
+            <td style={{...S.td,textAlign:"right"}}>{s.wt}</td><td style={{...S.td,textAlign:"right"}}>{fn(s.kg)}</td>
+            <td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(s.amt)}</td>
+          </tr>)}</tbody></table></div>
+          <div style={{marginTop:8,padding:"8px 10px",background:"#0d2137",borderRadius:6,fontSize:12}}>
+            <SR label="Net Weight" value={fn(res.twt)+" kg"}/><SR label="Wastage 10%" value={fn(res.wst)+" kg"}/>
+            <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,color:"#4ade80",fontSize:13}}><span>Aluminium Total</span><span>{fm(res.alAmt)}</span></div>
+          </div>
+        </Card>}
+        {dt==="glass"&&<Card title="Glass Calculation"><div style={{overflowX:"auto"}}>
+          <table><thead><tr>{["Type","W mm","H mm","Sqft","Qty","Total Sqft","Rate","Amount"].map(h=><th key={h} style={{...S.th,textAlign:h==="Type"?"left":"right"}}>{h}</th>)}</tr></thead>
+          <tbody>{res.glass.map((g,i)=><tr key={i}>
+            <td style={{...S.td,color:"#93c5fd"}}>{g.n}</td><td style={{...S.td,textAlign:"right"}}>{fn(g.sw,0)}</td>
+            <td style={{...S.td,textAlign:"right"}}>{fn(g.sh,0)}</td><td style={{...S.td,textAlign:"right"}}>{fn(g.sqe)}</td>
+            <td style={{...S.td,textAlign:"right"}}>{g.q}</td><td style={{...S.td,textAlign:"right"}}>{fn(g.tsq)}</td>
+            <td style={{...S.td,textAlign:"right"}}>{g.isNet?"₹35":"₹55"}</td>
+            <td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(g.amt)}</td>
+          </tr>)}</tbody></table></div>
+          <div style={{marginTop:8,padding:"8px 10px",background:"#0d2137",borderRadius:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,color:"#4ade80",fontSize:13}}><span>Glass Total</span><span>{fm(res.glAmt)}</span></div>
+          </div>
+        </Card>}
+        {dt==="hardware"&&<Card title="Hardware Items"><div style={{overflowX:"auto"}}>
+          <table><thead><tr>{["Item","Qty","Rate","Amount"].map(h=><th key={h} style={{...S.th,textAlign:h==="Item"?"left":"right"}}>{h}</th>)}</tr></thead>
+          <tbody>
+            {res.hw.map((h,i)=><tr key={i}>
+              <td style={{...S.td,color:"#93c5fd"}}>{h.n}{h.note&&<span style={{color:"#fbbf24",fontSize:10}}>{" "+h.note}</span>}</td>
+              <td style={{...S.td,textAlign:"right"}}>{fn(+h.q,2)} {h.u||""}</td>
+              <td style={{...S.td,textAlign:"right"}}>{"₹"+h.r}</td>
+              <td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm((+h.q)*h.r)}</td>
+            </tr>)}
+            {res.lock==="mp"&&<tr style={{background:"#1e3a5f22"}}>
+              <td style={{...S.td,color:"#fbbf24"}}>Multi-Point Lock System</td>
+              <td colSpan={2} style={{...S.td,textAlign:"right",color:"#9ca3af",fontSize:10}}>Calculated</td>
+              <td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(res.lockAmt)}</td>
+            </tr>}
+          </tbody></table></div>
+          <div style={{marginTop:8,padding:"8px 10px",background:"#0d2137",borderRadius:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,color:"#4ade80",fontSize:13}}><span>Hardware Total</span><span>{fm(res.hwAmt)}</span></div>
+          </div>
+        </Card>}
+        {dt==="rubber"&&<Card title="EPDM Rubber">
+          <table><thead><tr>{["Item","Running Feet","Rate","Amount"].map(h=><th key={h} style={{...S.th,textAlign:h==="Item"?"left":"right"}}>{h}</th>)}</tr></thead>
+          <tbody>{[{n:"Shutter EPDM Width",ft:res.epW},{n:"Track EPDM (H+W)",ft:res.epT},{n:"Shutter EPDM Height",ft:res.epH}].map((r,i)=><tr key={i}>
+            <td style={{...S.td,color:"#93c5fd"}}>{r.n}</td><td style={{...S.td,textAlign:"right"}}>{fn(r.ft)}</td>
+            <td style={{...S.td,textAlign:"right"}}>₹10</td><td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(r.ft*10)}</td>
+          </tr>)}</tbody></table>
+          <div style={{marginTop:8,padding:"8px 10px",background:"#0d2137",borderRadius:6}}>
+            <SR label="Total EPDM" value={fn(res.totEp)+" rft"}/>
+            <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,color:"#4ade80",fontSize:13}}><span>EPDM Total</span><span>{fm(res.epAmt)}</span></div>
+          </div>
+        </Card>}
+        {dt==="labour"&&<Card title="Labour & Transport">
+          <table><tbody>
+            <tr style={{borderBottom:"1px solid #1e293b"}}>
+              <td style={{...S.td,color:"#93c5fd"}}>{"Labour ("+res.type.tracks+" Track)"}</td>
+              <td style={{...S.td,textAlign:"right"}}>{fn(res.tSq)+" sqft × ₹"+res.lbR}</td>
+              <td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(res.lbAmt)}</td>
+            </tr>
+            <tr><td style={{...S.td,color:"#93c5fd"}}>Transport</td><td style={{...S.td,textAlign:"right"}}>Fixed</td><td style={{...S.td,textAlign:"right",color:"#4ade80"}}>{fm(res.transport)}</td></tr>
+          </tbody></table>
+        </Card>}
+      </div>}
+    </div>
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// QUOTATION TAB  
+// ══════════════════════════════════════════════════════════════════════════════
+function newRow(){return{id:uid(),location:"",seriesId:"29slim",typeId:"2T2S",W:"",H:"",qty:1,lock:"concealed",cid:"white",calc:null};}
+
+function QuoteTab({rates,co}){
+  const [cName,setCName]=useState("");
+  const [pName,setPName]=useState("");
+  const [pRef,setPRef]=useState("");
+  const [rows,setRows]=useState([newRow(),newRow()]);
+  const [showDetail,setShowDetail]=useState(null);
+
+  const updateRow=(id,key,val)=>setRows(prev=>prev.map(r=>r.id===id?{...r,[key]:val,calc:null}:r));
+  const calcRow=(id)=>setRows(prev=>prev.map(r=>{
+    if(r.id!==id)return r;
+    const s=SERIES[r.seriesId],at=ALL_TYPES.filter(t=>s.types.includes(t.id)),ty=at.find(t=>t.id===r.typeId)||at[0];
+    return{...r,calc:doCalc(r.W,r.H,ty,s,rates,r.lock,r.cid)};
+  }));
+  const calcAll=()=>setRows(prev=>prev.map(r=>{
+    const s=SERIES[r.seriesId],at=ALL_TYPES.filter(t=>s.types.includes(t.id)),ty=at.find(t=>t.id===r.typeId)||at[0];
+    return{...r,calc:doCalc(r.W,r.H,ty,s,rates,r.lock,r.cid)};
+  }));
+  const dupRow=(id)=>{const i=rows.findIndex(r=>r.id===id),n={...rows[i],id:uid(),calc:null},a=[...rows];a.splice(i+1,0,n);setRows(a);};
+  const delRow=(id)=>setRows(prev=>prev.filter(r=>r.id!==id));
+  const addRow=()=>setRows(prev=>[...prev,newRow()]);
+
+  const totals=useMemo(()=>{
+    const v=rows.filter(r=>r.calc);
+    return{GT:v.reduce((s,r)=>s+r.calc.unitTotal*(r.qty||1),0),GS:v.reduce((s,r)=>s+r.calc.tSq*(r.qty||1),0),GQ:v.reduce((s,r)=>s+(r.qty||1),0),count:v.length};
+  },[rows]);
+
+  const detRow=showDetail?rows.find(r=>r.id===showDetail):null;
+
+  return <div>
+    {/* Customer */}
+    <Card style={{marginBottom:12}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderBottom:"1px solid #2d3748",paddingBottom:6}}>👤 Customer & Project</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}} className="mg">
+        <div><label style={S.lbl}>Customer Name</label><input value={cName} onChange={e=>setCName(e.target.value)} placeholder="Mr. Ramesh Sharma" style={S.inp}/></div>
+        <div><label style={S.lbl}>Project / Site</label><input value={pName} onChange={e=>setPName(e.target.value)} placeholder="Sharma Residence, Surat" style={S.inp}/></div>
+        <div><label style={S.lbl}>Quote Ref No.</label><input value={pRef} onChange={e=>setPRef(e.target.value)} placeholder="AF-2026-001" style={S.inp}/></div>
+      </div>
+    </Card>
+
+    {/* Windows table */}
+    <Card style={{marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,borderBottom:"1px solid #2d3748",paddingBottom:8}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1}}>🪟 Windows List</div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={calcAll} style={{padding:"6px 14px",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:7,fontWeight:700,fontSize:12,cursor:"pointer"}}>⚡ Calculate All</button>
+          <button onClick={addRow} style={{padding:"6px 12px",background:"transparent",color:"#4ade80",border:"1px solid #4ade80",borderRadius:7,fontWeight:700,fontSize:12,cursor:"pointer"}}>+ Add Window</button>
+        </div>
+      </div>
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{minWidth:1000}}>
+          <thead>
+            <tr style={{background:"#0d2137"}}>
+              {["#","Location","Series","Type","W(mm)","H(mm)","Qty","Colour","Lock","Diagram","Sqft","Unit Price","Total","Actions"].map(h=>(
+                <th key={h} style={{...S.th,textAlign:["#","Sqft","Unit Price","Total"].includes(h)?"right":"left"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,idx)=>{
+              const s=SERIES[row.seriesId];
+              const at=ALL_TYPES.filter(t=>s.types.includes(t.id));
+              const ty=at.find(t=>t.id===row.typeId)||at[0];
+              const color=COLORS.find(c=>c.id===row.cid)||COLORS[0];
+              const isC=!!row.calc;
+              const rt=isC?row.calc.unitTotal*(row.qty||1):null;
+              return <tr key={row.id} style={{background:idx%2===0?"#1a2540":"#162036"}}>
+                <td style={{...S.td,textAlign:"right",color:"#64748b",fontWeight:700,paddingRight:8}}>{idx+1}</td>
+                <td style={S.td}><input value={row.location} onChange={e=>updateRow(row.id,"location",e.target.value)} placeholder="e.g. Hall" style={{...S.inp,fontSize:11,width:90}}/></td>
+                <td style={S.td}>
+                  <select value={row.seriesId} onChange={e=>{const sid=e.target.value;updateRow(row.id,"seriesId",sid);if(!SERIES[sid].types.includes(row.typeId))updateRow(row.id,"typeId",SERIES[sid].types[0]);}} style={{...S.sel,fontSize:10,width:95,borderColor:s.color+"77"}}>
+                    {Object.values(SERIES).map(sv=><option key={sv.id} value={sv.id}>{sv.label}</option>)}
+                  </select>
+                </td>
+                <td style={S.td}>
+                  <select value={row.typeId} onChange={e=>updateRow(row.id,"typeId",e.target.value)} style={{...S.sel,fontSize:10,width:95}}>
+                    {at.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                </td>
+                <td style={S.td}><input type="number" value={row.W} onChange={e=>updateRow(row.id,"W",e.target.value)} placeholder="1800" style={{...S.inp,width:68,textAlign:"right"}}/></td>
+                <td style={S.td}><input type="number" value={row.H} onChange={e=>updateRow(row.id,"H",e.target.value)} placeholder="1500" style={{...S.inp,width:68,textAlign:"right"}}/></td>
+                <td style={S.td}><input type="number" value={row.qty} min={1} onChange={e=>updateRow(row.id,"qty",+e.target.value)} style={{...S.inp,width:46,textAlign:"center"}}/></td>
+                <td style={S.td}>
+                  <select value={row.cid} onChange={e=>updateRow(row.id,"cid",e.target.value)} style={{...S.sel,fontSize:10,width:80}}>
+                    {COLORS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </td>
+                <td style={S.td}>
+                  <select value={row.lock} onChange={e=>updateRow(row.id,"lock",e.target.value)} style={{...S.sel,fontSize:10,width:80}}>
+                    <option value="concealed">Concealed</option>
+                    <option value="mp">Multi-Pt</option>
+                  </select>
+                </td>
+                {/* Mini window diagram */}
+                <td style={{...S.td,width:80}}>
+                  <div style={{width:75,height:55,flexShrink:0}}>
+                    <WinDiag type={ty} colorHex={color.hex} W={row.W} H={row.H} seriesColor={s.color} size="sm"/>
+                  </div>
+                </td>
+                <td style={{...S.td,textAlign:"right",color:isC?"#93c5fd":"#4b5563",fontWeight:600}}>{isC?fn(row.calc.tSq):"—"}</td>
+                <td style={{...S.td,textAlign:"right",fontWeight:600}}>{isC?fm(row.calc.unitTotal):"—"}</td>
+                <td style={{...S.td,textAlign:"right",color:isC?"#4ade80":"#4b5563",fontWeight:700}}>{isC?fm(rt):"—"}</td>
+                <td style={S.td}>
+                  <div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>calcRow(row.id)} title="Calculate" style={{padding:"4px 7px",background:"#2563eb",color:"#fff",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:700}}>⚡</button>
+                    {isC&&<button onClick={()=>setShowDetail(row.id)} title="Details" style={{padding:"4px 7px",background:"#1e3a5f",color:"#93c5fd",border:"1px solid #2d6a9f",borderRadius:5,cursor:"pointer",fontSize:11}}>📋</button>}
+                    <button onClick={()=>dupRow(row.id)} title="Duplicate" style={{padding:"4px 7px",background:"#1e293b",color:"#94a3b8",border:"1px solid #374151",borderRadius:5,cursor:"pointer",fontSize:11}}>⧉</button>
+                    {rows.length>1&&<button onClick={()=>delRow(row.id)} title="Delete" style={{padding:"4px 7px",background:"#450a0a",color:"#f87171",border:"1px solid #7f1d1d",borderRadius:5,cursor:"pointer",fontSize:11}}>🗑</button>}
+                  </div>
+                </td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button onClick={addRow} style={{width:"100%",marginTop:10,padding:"8px",background:"transparent",color:"#4ade80",border:"1px dashed #4ade8066",borderRadius:8,fontWeight:600,fontSize:12,cursor:"pointer"}}>
+        + Add Another Window
+      </button>
+    </Card>
+
+    {/* Grand total */}
+    {totals.count>0&&<>
+      <div style={{...S.card,marginBottom:12,background:"linear-gradient(135deg,#1e3a5f,#0d2137)",border:"1px solid #2d6a9f"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto",gap:12,alignItems:"center"}} className="mg">
+          <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#64748b",marginBottom:2}}>Windows</div><div style={{fontSize:22,fontWeight:800,color:"#93c5fd"}}>{totals.count}</div></div>
+          <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#64748b",marginBottom:2}}>Total Qty</div><div style={{fontSize:22,fontWeight:800,color:"#93c5fd"}}>{totals.GQ}</div></div>
+          <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#64748b",marginBottom:2}}>Total Area</div><div style={{fontSize:20,fontWeight:800,color:"#93c5fd"}}>{fn(totals.GS)} sqft</div></div>
+          <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#64748b",marginBottom:2}}>GRAND TOTAL</div><div style={{fontSize:24,fontWeight:800,color:"#4ade80"}}>{fm(totals.GT)}</div></div>
+          <button onClick={()=>makeMultiPDF(rows,cName,pName,pRef,co)}
+            style={{padding:"11px 18px",background:"linear-gradient(135deg,#059669,#047857)",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer",whiteSpace:"nowrap"}}>
+            📄 Download PDF Quote
+          </button>
+        </div>
+      </div>
+
+      {/* Summary table */}
+      <Card title="📊 Quotation Summary">
+        <div style={{overflowX:"auto"}}>
+          <table>
+            <thead><tr style={{background:"#0d2137"}}>
+              {["#","Location","Series","Type","Size","Qty","Sqft","Unit Price","Total","Rate/sqft"].map(h=>(
+                <th key={h} style={{...S.th,textAlign:["#","Sqft","Unit Price","Total","Rate/sqft"].includes(h)?"right":"left"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {rows.map((row,idx)=>{
+                if(!row.calc)return null;
+                const r=row.calc,q=row.qty||1;
+                return <tr key={row.id} style={{borderBottom:"1px solid #1e3a5f"}}>
+                  <td style={{...S.td,textAlign:"right",color:"#64748b",fontWeight:700}}>{idx+1}</td>
+                  <td style={{...S.td,color:"#93c5fd",fontWeight:600}}>{row.location||"Window "+(idx+1)}</td>
+                  <td style={S.td}><span style={{padding:"2px 6px",background:r.series.color+"22",border:"1px solid "+r.series.color+"55",borderRadius:8,fontSize:10,color:r.series.color,fontWeight:700}}>{r.series.label}</span></td>
+                  <td style={{...S.td,fontSize:10,color:"#94a3b8"}}>{r.type.full}</td>
+                  <td style={{...S.td,fontWeight:600,textAlign:"right"}}>{r.w}×{r.h}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{q}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{fn(r.tSq*q)}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{fm(r.unitTotal)}</td>
+                  <td style={{...S.td,textAlign:"right",color:"#4ade80",fontWeight:700}}>{fm(r.unitTotal*q)}</td>
+                  <td style={{...S.td,textAlign:"right",color:"#64748b"}}>{fm(r.sqR)}</td>
+                </tr>;
+              })}
+              <tr style={{background:"#0d2137",borderTop:"2px solid #2d6a9f"}}>
+                <td colSpan={6} style={{...S.td,fontWeight:700,color:"#93c5fd",fontSize:13}}>GRAND TOTAL</td>
+                <td style={{...S.td,textAlign:"right",fontWeight:700,color:"#93c5fd"}}>{fn(totals.GS)}</td>
+                <td style={S.td}></td>
+                <td style={{...S.td,textAlign:"right",fontWeight:800,color:"#4ade80",fontSize:15}}>{fm(totals.GT)}</td>
+                <td style={{...S.td,textAlign:"right",color:"#64748b"}}>{fn(totals.GT/totals.GS)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>}
+
+    {/* Detail modal */}
+    {showDetail&&detRow&&detRow.calc&&(
+      <div style={{position:"fixed",inset:0,background:"#000b",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowDetail(null)}>
+        <div style={{background:"#1e293b",borderRadius:16,padding:20,maxWidth:560,width:"100%",maxHeight:"85vh",overflowY:"auto",border:"1px solid #2d6a9f"}} onClick={e=>e.stopPropagation()}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:"#93c5fd"}}>{detRow.location||"Window "+(rows.findIndex(r=>r.id===showDetail)+1)} – Detail</div>
+              <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{detRow.calc.series.label} | {detRow.calc.type.full} | {detRow.calc.w}×{detRow.calc.h}mm</div>
+            </div>
+            <button onClick={()=>setShowDetail(null)} style={{background:"#374151",color:"#9ca3af",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:13}}>✕</button>
+          </div>
+          {/* Mini diagram in modal */}
+          <div style={{maxWidth:200,margin:"0 auto 14px"}}>
+            <WinDiag type={detRow.calc.type} colorHex={detRow.calc.color.hex} W={detRow.calc.w} H={detRow.calc.h} seriesColor={detRow.calc.series.color}/>
+          </div>
+          {[["Aluminium",detRow.calc.alAmt,"Net: "+fn(detRow.calc.twt)+"kg + Wastage: "+fn(detRow.calc.wst)+"kg"],["Glass",detRow.calc.glAmt],["Hardware",detRow.calc.hwAmt],["EPDM Rubber",detRow.calc.epAmt,fn(detRow.calc.totEp)+" rft"],["Labour",detRow.calc.lbAmt,fn(detRow.calc.tSq)+" sqft × ₹"+detRow.calc.lbR],["Transport",detRow.calc.transport]].map((it,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:i%2===0?"#0f1117":"#162032",borderRadius:5,marginBottom:3}}>
+              <div><div style={{fontSize:12,color:"#e2e8f0"}}>{it[0]}</div>{it[2]&&<div style={{fontSize:9,color:"#64748b",marginTop:1}}>{it[2]}</div>}</div>
+              <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0"}}>{fm(it[1])}</div>
+            </div>
+          ))}
+          {detRow.calc.pcAmt>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:"#0f1117",borderRadius:5,marginBottom:3}}>
+            <div style={{fontSize:12,color:"#e2e8f0"}}>Powder Coating ({detRow.calc.color.label})</div>
+            <div style={{fontSize:13,fontWeight:600}}>{fm(detRow.calc.pcAmt)}</div>
+          </div>}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:"#0d2137",borderRadius:8,marginTop:10,border:"1px solid #2d6a9f"}}>
+            <div><div style={{fontSize:13,fontWeight:700,color:"#93c5fd"}}>UNIT TOTAL</div><div style={{fontSize:10,color:"#64748b",marginTop:2}}>{fn(detRow.calc.tSq)} sqft @ {fm(detRow.calc.sqR)}/sqft</div></div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:20,fontWeight:800,color:"#4ade80"}}>{fm(detRow.calc.unitTotal)}</div>
+              {(detRow.qty||1)>1&&<div style={{fontSize:12,color:"#93c5fd",marginTop:2}}>× {detRow.qty} = {fm(detRow.calc.unitTotal*(detRow.qty||1))}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMPANY PROFILE TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function CompanyTab({co,setCo}){
+  const [loc,setLoc]=useState({...co});
+  const upd=(k,v)=>setLoc(p=>({...p,[k]:v}));
+  const saved=JSON.stringify(loc)===JSON.stringify(co);
+  return <div>
+    <div style={{fontSize:16,fontWeight:700,color:"#93c5fd",marginBottom:6}}>🏢 My Company Profile</div>
+    <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>These details will appear on every PDF estimate and quotation you generate.</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,maxWidth:800}}>
+      {/* Company Name */}
+      <div style={{gridColumn:"1/-1"}}>
+        <div style={{background:"#1e293b",border:"1px solid #2d3748",borderRadius:12,padding:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12,borderBottom:"1px solid #2d3748",paddingBottom:7}}>Company Information</div>
+          <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>Company / Business Name *</label>
+          <input value={loc.name} onChange={e=>upd("name",e.target.value)} placeholder="e.g. Sharma Aluminium & Glass Works"
+            style={{width:"100%",padding:"10px 12px",background:"#0f1117",border:"2px solid #3b82f6",borderRadius:8,color:"#e2e8f0",fontSize:14,fontWeight:600,boxSizing:"border-box"}}/>
+          <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4,marginTop:12}}>Tagline / Specialty</label>
+          <input value={loc.tagline} onChange={e=>upd("tagline",e.target.value)} placeholder="e.g. Aluminium Window & Door Specialists"
+            style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box"}}/>
+        </div>
+      </div>
+      {/* Contact */}
+      <div style={{background:"#1e293b",border:"1px solid #2d3748",borderRadius:12,padding:16}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12,borderBottom:"1px solid #2d3748",paddingBottom:7}}>Contact Details</div>
+        <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>📞 Phone Number</label>
+        <input value={loc.phone} onChange={e=>upd("phone",e.target.value)} placeholder="e.g. +91 98765 43210"
+          style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",marginBottom:10}}/>
+        <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>✉ Email Address</label>
+        <input value={loc.email} onChange={e=>upd("email",e.target.value)} placeholder="e.g. info@yourcompany.com"
+          style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",marginBottom:10}}/>
+        <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>🌐 Website</label>
+        <input value={loc.website} onChange={e=>upd("website",e.target.value)} placeholder="e.g. www.yourcompany.com"
+          style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box"}}/>
+      </div>
+      {/* Address & GST */}
+      <div style={{background:"#1e293b",border:"1px solid #2d3748",borderRadius:12,padding:16}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12,borderBottom:"1px solid #2d3748",paddingBottom:7}}>Address & Tax</div>
+        <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>📍 Business Address</label>
+        <textarea value={loc.address} onChange={e=>upd("address",e.target.value)} placeholder="e.g. Shop 5, Industrial Area, Ring Road, Surat - 395001"
+          rows={3} style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit",marginBottom:10}}/>
+        <label style={{fontSize:11,color:"#64748b",fontWeight:600,display:"block",marginBottom:4}}>🧾 GST Number</label>
+        <input value={loc.gst} onChange={e=>upd("gst",e.target.value)} placeholder="e.g. 24XXXXX1234X1ZX"
+          style={{width:"100%",padding:"9px 12px",background:"#0f1117",border:"1px solid #374151",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",letterSpacing:1}}/>
+      </div>
+    </div>
+
+    {/* Preview */}
+    {loc.name&&<div style={{maxWidth:800,marginTop:16,background:"linear-gradient(135deg,#1e3a5f,#0d2137)",border:"1px solid #2d6a9f",borderRadius:12,padding:16}}>
+      <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>📄 PDF Header Preview</div>
+      <div style={{background:"#0d2137",borderRadius:8,padding:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#93c5fd"}}>{loc.name.toUpperCase()}</div>
+        {loc.tagline&&<div style={{fontSize:11,color:"#94a3b8",marginTop:3}}>{loc.tagline}</div>}
+        <div style={{fontSize:10,color:"#64748b",marginTop:4,display:"flex",gap:16,flexWrap:"wrap"}}>
+          {loc.phone&&<span>📞 {loc.phone}</span>}
+          {loc.email&&<span>✉ {loc.email}</span>}
+          {loc.website&&<span>🌐 {loc.website}</span>}
+        </div>
+        {loc.address&&<div style={{fontSize:10,color:"#64748b",marginTop:3}}>📍 {loc.address}</div>}
+        {loc.gst&&<div style={{fontSize:10,color:"#64748b",marginTop:3}}>GST: {loc.gst}</div>}
+      </div>
+    </div>}
+
+    <div style={{marginTop:16,display:"flex",gap:10,alignItems:"center",maxWidth:800}}>
+      <button onClick={()=>setCo({...loc})}
+        style={{padding:"11px 28px",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}}>
+        ✓ Save Company Profile
+      </button>
+      {!saved&&<span style={{fontSize:12,color:"#f59e0b"}}>⚠ Unsaved changes</span>}
+      {saved&&co.name&&<span style={{fontSize:12,color:"#4ade80"}}>✓ Saved — will appear on all PDFs</span>}
+    </div>
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RATES TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function RatesTab({rates,setRates}){
+  const [loc,setLoc]=useState({...rates});
+  const grps=[
+    {t:"Material Rates",f:[{k:"al",l:"Aluminium (₹/kg)"},{k:"g5",l:"5mm Glass (₹/sqft)"},{k:"net",l:"Mosquito Net (₹/sqft)"},{k:"ep",l:"EPDM Rubber (₹/rft)"},{k:"wst",l:"Wastage (%)",pct:true}]},
+    {t:"Labour & Others",f:[{k:"lb2",l:"Labour 2 Track"},{k:"lb3",l:"Labour 3 Track"},{k:"tr",l:"Transport (fixed)"},{k:"pc",l:"Base Powder Coating"}]},
+    {t:"Hardware",f:[{k:"b2",l:"Bearing 2T"},{k:"b3",l:"Bearing 3T"},{k:"cl",l:"Concealed Lock 2T"},{k:"cl3",l:"Concealed Lock 3T"},{k:"si",l:"Silicon"},{k:"ad",l:"Anti Dust"},{k:"bs",l:"Bump Stopper"},{k:"st",l:"Sticker"},{k:"kp",l:"KPA Cover"},{k:"ic",l:"Interlock Cap"},{k:"sl",l:"Silicon Labour"}]},
+  ];
+  return <div>
+    <div style={{fontSize:16,fontWeight:700,color:"#93c5fd",marginBottom:14}}>⚙️ Rate Configuration</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(270px,1fr))",gap:12}}>
+      {grps.map(g=><div key={g.t} style={S.card}>
+        <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderBottom:"1px solid #2d3748",paddingBottom:6}}>{g.t}</div>
+        {g.f.map(f=><div key={f.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
+          <label style={{fontSize:12,color:"#94a3b8",flex:1}}>{f.l}</label>
+          <input type="number" value={f.pct?loc[f.k]*100:loc[f.k]} onChange={e=>setLoc(p=>({...p,[f.k]:f.pct?+e.target.value/100:+e.target.value}))}
+            style={{...S.inp,width:78,textAlign:"right",padding:"4px 8px"}}/>
+        </div>)}
+      </div>)}
+    </div>
+    <div style={{marginTop:14,display:"flex",gap:10}}>
+      <button onClick={()=>setRates({...loc})} style={{padding:"10px 22px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,fontWeight:700,cursor:"pointer"}}>✓ Save Rates</button>
+      <button onClick={()=>{setLoc({...DR});setRates({...DR});}} style={{padding:"10px 22px",background:"#374151",color:"#9ca3af",border:"1px solid #4b5563",borderRadius:8,fontWeight:600,cursor:"pointer"}}>Reset to Default</button>
+    </div>
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROOT APP
+// ══════════════════════════════════════════════════════════════════════════════
+function App(){
+  const [user,setUser]=useState(null);
+  const [tab,setTab]=useState("calc");
+  const [co,setCo]=useState({name:"",tagline:"",phone:"",email:"",address:"",gst:"",website:""});
+  const [rates,setRates]=useState({...DR});
+
+  if(!user)return <LoginScreen onLogin={n=>setUser(n)}/>;
+
+  return <div style={{minHeight:"100vh"}}>
+    {/* HEADER */}
+    <div style={{background:"linear-gradient(135deg,#1e3a5f,#0d2137)",borderBottom:"1px solid #2d6a9f"}}>
+      <div style={{maxWidth:1300,margin:"0 auto",padding:"0 18px",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:34,height:34,background:"linear-gradient(135deg,#3b82f6,#1d4ed8)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,margin:"8px 0"}}>🪟</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:15,fontWeight:700,color:"#93c5fd"}}>AlumCalc Pro</div>
+          <div style={{fontSize:9,color:"#64748b"}}>Alufabb Fenestration • 5 Series</div>
+        </div>
+        {/* NAV TABS */}
+        <div style={{display:"flex"}}>
+          {[["calc","📐 Calculator"],["quote","📋 Quotation"],["company","🏢 My Company"],["rates","⚙️ Rates"]].map(([t,l])=>(
+            <button key={t} className={"nav-tab"+(tab===t?" on":"")} onClick={()=>setTab(t)}>{l}</button>
+          ))}
+        </div>
+        <div style={{fontSize:11,color:"#4ade80",marginLeft:8}}>📱 +91 {user}</div>
+        <button onClick={()=>setUser(null)} style={{padding:"4px 9px",borderRadius:6,border:"1px solid #374151",cursor:"pointer",fontSize:10,background:"transparent",color:"#9ca3af",marginLeft:4}}>Logout</button>
+      </div>
+    </div>
+
+    <div style={{maxWidth:1300,margin:"0 auto",padding:14}}>
+      {tab==="calc"&&<CalcTab rates={rates} co={co}/>}
+      {tab==="quote"&&<QuoteTab rates={rates} co={co}/>}
+      {tab==="rates"&&<RatesTab rates={rates} setRates={setRates}/>}
+      {tab==="company"&&<CompanyTab co={co} setCo={setCo}/>}
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
