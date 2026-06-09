@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1d4ed8"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Window Visualiser – AlumCalc Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6fb;color:#1e2840;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+.header{background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:12px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(37,99,235,0.3)}
+.header h1{font-size:15px;font-weight:800;color:#fff}
+.header p{font-size:9px;color:rgba(255,255,255,0.6)}
+.back{padding:5px 12px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;text-decoration:none}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:12px;padding:12px;max-width:1200px;margin:0 auto}
+@media(max-width:700px){
+  .layout{grid-template-columns:1fr;padding:8px;gap:8px}
+  .canvas-box{min-height:260px}
+  button{min-height:40px}
+  label{font-size:12px}
+  select{padding:8px 10px;font-size:13px}
+  input[type=range]{height:20px}
+}
+.panel{background:#fff;border:1px solid #e4e8f0;border-radius:10px;padding:14px;margin-bottom:11px;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.ptitle{font-size:11px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.7px;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid #eef0f8}
+label{font-size:11px;color:#6b7a99;font-weight:600;display:block;margin-bottom:3px;margin-top:7px}
+select,input[type=range]{width:100%;margin-bottom:6px}
+select{padding:6px 8px;background:#fff;border:1px solid #dde2ee;border-radius:6px;color:#1e2840;font-size:12px;outline:none}
+select:focus{border-color:#2563eb}
+input[type=range]{accent-color:#2563eb;cursor:pointer;width:100%;height:18px}
+.val{font-size:11px;font-weight:700;color:#2563eb;float:right;background:#eff6ff;padding:1px 6px;border-radius:4px}
+.sw-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+.sw{width:32px;height:32px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:.15s;flex-shrink:0}
+.sw.on{border-color:#2563eb;box-shadow:0 0 0 2px #fff,0 0 0 4px #2563eb;transform:scale(1.1)}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;font-size:12px;font-weight:700;border-radius:8px;border:none;cursor:pointer;transition:.15s;width:100%}
+.btn-save{background:#16a34a;color:#fff;margin-bottom:7px}
+.btn-reset{background:#fff;color:#6b7a99;border:1px solid #dde2ee}
+.btn-quote{background:#2563eb;color:#fff;margin-top:7px}
+.btn-ba{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;margin-top:7px}
+.canvas-box{background:#e8ecf5;border-radius:10px;overflow:hidden;min-height:400px;display:flex;align-items:center;justify-content:center;border:1px solid #dde2ee}
+canvas{display:block;max-width:100%;cursor:crosshair}
+.empty{text-align:center;padding:60px 24px;color:#c5cde0}
+.empty div:first-child{font-size:40px;margin-bottom:10px}
+.tip{font-size:11px;color:#6b7a99;text-align:center;padding:6px;margin-top:4px}
+.add-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-top:4px}
+.add-box .title{font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.add-box p{font-size:11px;color:#6b7a99;margin-bottom:8px}
+.success{background:#f0fdf4;border:1px solid #86efac;color:#16a34a;padding:8px 12px;border-radius:7px;font-size:12px;font-weight:700;text-align:center;margin-top:7px}
+</style>
+</head>
+<body>
+<div class="header" style="flex-wrap:wrap;gap:8px">
+  <div style="width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🪟</div>
+  <div style="flex:1;min-width:120px"><h1>Window Visualiser</h1><p>AlumCalc Pro • Alufabb Fenestration</p></div>
+  <a href="/" class="back">← Back to App</a>
+</div>
+
+<div class="layout">
+<div>
+  <div class="panel">
+    <div class="ptitle">📸 Upload Room Photo</div>
+    <div id="dz" style="border:2px dashed #bfdbfe;border-radius:8px;padding:20px 12px;text-align:center;cursor:pointer;background:#f0f7ff;transition:.15s" onclick="document.getElementById('fi').click()" ondragover="event.preventDefault();this.style.background='#dbeafe'" ondragleave="this.style.background='#f0f7ff'" ondrop="event.preventDefault();this.style.background='#f0f7ff';loadF(event.dataTransfer.files[0])">
+      <div style="font-size:28px;margin-bottom:6px">📷</div>
+      <div style="font-size:12px;color:#6b7a99">Click or drag a wall / room photo here</div>
+    </div>
+    <input type="file" id="fi" accept="image/*" style="display:none" onchange="loadF(this.files[0])">
+  </div>
+
+  <div class="panel">
+    <div class="ptitle">🪟 Window Type</div>
+    <label>Series</label>
+    <select id="serS" onchange="draw()">
+      <option value="29slim">29mm Slim</option>
+      <option value="25mm">25mm Prestige</option>
+      <option value="27mm">27mm</option>
+      <option value="35mm">35mm</option>
+      <option value="37mm">37mm</option>
+    </select>
+    <label>Configuration</label>
+    <select id="typeS" onchange="draw()">
+      <option value="2S">2 Track – 2 Shutter</option>
+      <option value="3S">3 Track – 3 Shutter</option>
+      <option value="4CO">4 Shutter – Centre Opening</option>
+      <option value="6CO">6 Shutter – Centre Opening</option>
+      <option value="2S1N">2 Shutter + 1 Mosquito Net</option>
+      <option value="4S2N">4 Shutter + 2 Mosquito Net</option>
+    </select>
+    <label>Frame Finish</label>
+    <div class="sw-row" id="swRow"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle">⚙️ Adjust</div>
+    <label>Width <span class="val" id="wv">220px</span></label>
+    <input type="range" id="ww" min="90" max="560" value="220" oninput="document.getElementById('wv').textContent=this.value+'px';draw()">
+    <label>Height <span class="val" id="hv">178px</span></label>
+    <input type="range" id="wh" min="80" max="440" value="178" oninput="document.getElementById('hv').textContent=this.value+'px';draw()">
+    <label>Profile width <span class="val" id="fv">9px</span></label>
+    <input type="range" id="fw" min="4" max="22" value="9" oninput="document.getElementById('fv').textContent=this.value+'px';draw()">
+    <label>Glass tint <span class="val" id="gv">8%</span></label>
+    <input type="range" id="gt" min="0" max="40" value="8" oninput="document.getElementById('gv').textContent=this.value+'%';draw()">
+    <label>Reflection <span class="val" id="rv">35%</span></label>
+    <input type="range" id="re" min="0" max="80" value="35" oninput="document.getElementById('rv').textContent=this.value+'%';draw()">
+    <label>Drop shadow <span class="val" id="dv">10px</span></label>
+    <input type="range" id="ds" min="0" max="28" value="10" oninput="document.getElementById('dv').textContent=this.value+'px';draw()">
+    <label>Ambient light <span class="val" id="av">78%</span></label>
+    <input type="range" id="am" min="20" max="100" value="78" oninput="document.getElementById('av').textContent=this.value+'%';draw()">
+    <button class="btn btn-save" onclick="save()">💾 Save Image</button>
+    <button class="btn btn-reset" onclick="resetPos()">↺ Reset Position</button>
+    <button class="btn btn-ba" onclick="toggleBA()" id="baBtn" style="display:none">⬛ Before/After Slider</button>
+    <div class="tip">💡 Drag the window on the photo to reposition</div>
+
+    <div class="add-box">
+      <div class="title">📋 Add to Quotation</div>
+      <p>Select series and type, then send directly to your quotation sheet.</p>
+      <label>Location / Name</label>
+      <input type="text" id="locIn" placeholder="e.g. Bedroom 1, Hall..." style="width:100%;padding:6px 8px;border:1px solid #dde2ee;border-radius:6px;font-size:12px;margin-bottom:7px">
+      <button class="btn btn-quote" onclick="addToQuote()">📋 Add to Quotation →</button>
+      <div id="addedMsg" style="display:none" class="success">✅ Added! Go back to app → Quotation tab</div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="canvas-box" id="ca">
+    <div class="empty" id="em">
+      <div>📷</div>
+      <div style="font-size:14px;font-weight:600;color:#a0abc0">Upload a room photo to preview</div>
+      <div style="font-size:12px;margin-top:6px;color:#c5cde0">Take a photo of your wall or window opening<br>then overlay a realistic aluminium window</div>
+    </div>
+    <canvas id="cv" style="display:none"></canvas>
+  </div>
+  <div class="tip" id="dragTip" style="display:none">👆 Drag window to reposition • Use sliders to resize</div>
+
+<!-- BEFORE/AFTER SECTION -->
+<div id="baSection" style="display:none;margin-top:14px">
+  <div class="panel">
+    <div class="ptitle">⬛ Before / After Slider</div>
+    <p style="font-size:12px;color:#6b7a99;margin-bottom:10px">Drag the slider to reveal the window installation. Share this with your customer!</p>
+    <canvas id="baCanvas" style="display:block;max-width:100%;cursor:col-resize;border-radius:8px;border:1px solid #e4e8f0"></canvas>
+    <button class="btn btn-save" onclick="saveBA()" style="margin-top:8px;width:100%">💾 Save Before/After Image</button>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+const FINISHES=[
+  {name:"Graphite Black", frame:"#2a2b2e",hi:"#525458",mid:"#3a3b3f",lo:"#18191c",edge:"#0a0a0c"},
+  {name:"Charcoal Grey",  frame:"#4a4b50",hi:"#78797e",mid:"#5a5b60",lo:"#2a2b2e",edge:"#1a1a1c"},
+  {name:"White Powder",   frame:"#d4d4d0",hi:"#f2f2ee",mid:"#c0c0bc",lo:"#909090",edge:"#707070"},
+  {name:"Silver",         frame:"#9a9a9a",hi:"#d2d2d2",mid:"#888888",lo:"#505050",edge:"#303030"},
+  {name:"Champagne",      frame:"#c4a870",hi:"#e8d4a0",mid:"#a88c58",lo:"#7a6038",edge:"#3a2808"},
+  {name:"Bronze",         frame:"#6a4a28",hi:"#9a7050",mid:"#584018",lo:"#382810",edge:"#180800"},
+];
+const TYPES={
+  "2S": {sh:2,net:0,co:false,tracks:2},
+  "3S": {sh:3,net:0,co:false,tracks:3},
+  "4CO":{sh:4,net:0,co:true, tracks:2},
+  "6CO":{sh:6,net:0,co:true, tracks:3},
+  "2S1N":{sh:2,net:1,co:false,tracks:3},
+  "4S2N":{sh:4,net:2,co:false,tracks:3},
+};
+const VIS_TO_QUOTE={"2S":"2T2S","3S":"3T3S","4CO":"2T4SCO","6CO":"3T6SCO","2S1N":"3T2S1N","4S2N":"3T4S2N"};
+const SER_COLORS={"29slim":"#2563eb","25mm":"#7c3aed","27mm":"#059669","35mm":"#d97706","37mm":"#dc2626"};
+
+let bgImg=null,bgCv=document.createElement("canvas"),fi=0,wx=80,wy=60,drag=false,dox=0,doy=0;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),bgCtx=bgCv.getContext("2d");
+
+// Build swatches
+const sr=document.getElementById("swRow");
+FINISHES.forEach((f,i)=>{
+  const d=document.createElement("div");
+  d.className="sw"+(i===0?" on":"");
+  d.style.background=f.frame;d.title=f.name;
+  d.onclick=()=>{fi=i;sr.querySelectorAll(".sw").forEach((s,j)=>s.classList.toggle("on",j===i));draw();};
+  sr.appendChild(d);
+});
+
+function sl(id){return+document.getElementById(id).value;}
+
+function loadF(file){
+  if(!file||!file.type.startsWith("image"))return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      bgImg=img;
+      const isMob=window.innerWidth<=700;
+      const maxW=isMob?window.innerWidth-24:Math.min(820,window.innerWidth-320);
+      const maxH=isMob?window.innerHeight*0.55:520;
+      const sc=Math.min(maxW/img.width,maxH/img.height,1);
+      cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
+      bgCv.width=cv.width;bgCv.height=cv.height;
+      bgCtx.drawImage(img,0,0,cv.width,cv.height);
+      cv.style.display="block";
+      document.getElementById("em").style.display="none";
+      document.getElementById("dragTip").style.display="block";
+      document.getElementById("baBtn").style.display="block";
+      resetPos();draw();
+    };
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+function resetPos(){wx=Math.round(cv.width*0.18);wy=Math.round(cv.height*0.12);}
+
+function drawWindow(X,Y,W,H,FR,GT,RE,DS,AM,f,T){
+  const{sh,net:nc,co,tracks}=T;
+  const TK=Math.max(4,FR*0.55);
+  const IX=X+FR,IY=Y+FR+TK,IW=W-FR*2,IH=H-FR*2-TK*2;
+  const SPW=IW/sh;    // width per shutter (spread across full width)
+  const NTPW=nc>0?IW*0.5/nc:0;  // each net panel = half width / nc
+  const shAW=IW;
+  let g;
+
+  // ── LAYER 1: REALISTIC MULTI-LAYER SHADOW ──────────────────────────────────
+  if(DS>0){
+    // Outer ambient occlusion (very soft, wide)
+    ctx.save();ctx.filter="blur("+(DS*2.5)+"px)";ctx.globalAlpha=0.18;ctx.fillStyle="#000";
+    ctx.fillRect(X-DS*0.5,Y-DS*0.2,W+DS,H+DS*0.5);ctx.restore();ctx.filter="none";
+    // Contact shadow (tighter, darker)
+    ctx.save();ctx.filter="blur("+(DS*0.7)+"px)";ctx.globalAlpha=0.45;ctx.fillStyle="#111";
+    ctx.fillRect(X+DS*0.2,Y+DS*0.4,W,H);ctx.restore();ctx.filter="none";
+    // Hard edge shadow (right+bottom only, very tight)
+    ctx.save();ctx.filter="blur("+(DS*0.2)+"px)";ctx.globalAlpha=0.3;ctx.fillStyle="#000";
+    ctx.fillRect(X+DS*0.5,Y+DS*0.8,W,H);ctx.restore();ctx.filter="none";
+  }
+
+  // ── LAYER 2: WALL REVEAL (inset depth) ─────────────────────────────────────
+  // Shows the window is set INTO the wall thickness — critical for realism
+  const REV=Math.max(3,FR*0.8);
+  // Top reveal — darker (ceiling of the reveal)
+  ctx.save();
+  g=ctx.createLinearGradient(X,Y-REV,X,Y);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,0.65)");
+  ctx.fillStyle=g;ctx.fillRect(X-REV,Y-REV,W+REV*2,REV);
+  // Left reveal
+  g=ctx.createLinearGradient(X-REV,Y,X,Y);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,0.45)");
+  ctx.fillStyle=g;ctx.fillRect(X-REV,Y-REV,REV,H+REV*2);
+  // Bottom reveal (lighter — light bounces up)
+  g=ctx.createLinearGradient(X,Y+H,X,Y+H+REV);g.addColorStop(0,"rgba(0,0,0,0.5)");g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g;ctx.fillRect(X-REV,Y+H,W+REV*2,REV);
+  // Right reveal
+  g=ctx.createLinearGradient(X+W,Y,X+W+REV,Y);g.addColorStop(0,"rgba(0,0,0,0.5)");g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g;ctx.fillRect(X+W,Y-REV,REV,H+REV*2);
+  ctx.restore();
+
+  // ── LAYER 3: OUTER FRAME — 4-face chamfer profile ──────────────────────────
+  // Base colour fill
+  ctx.fillStyle=f.frame;ctx.fillRect(X,Y,W,H);
+
+  // Top rail — lit face (light from above-left)
+  g=ctx.createLinearGradient(X,Y,X,Y+FR);
+  g.addColorStop(0,f.hi);g.addColorStop(0.25,f.hi);g.addColorStop(0.7,f.mid);g.addColorStop(1,f.frame);
+  ctx.fillStyle=g;ctx.fillRect(X,Y,W,FR);
+
+  // Left stile — lit face
+  g=ctx.createLinearGradient(X,Y,X+FR,Y);
+  g.addColorStop(0,f.hi);g.addColorStop(0.5,f.mid);g.addColorStop(1,f.frame);
+  ctx.fillStyle=g;ctx.fillRect(X,Y,FR,H);
+
+  // Bottom rail — shadow face
+  g=ctx.createLinearGradient(X,Y+H-FR,X,Y+H);
+  g.addColorStop(0,f.frame);g.addColorStop(0.6,f.lo);g.addColorStop(1,f.lo);
+  ctx.fillStyle=g;ctx.fillRect(X,Y+H-FR,W,FR);
+
+  // Right stile — shadow face
+  g=ctx.createLinearGradient(X+W-FR,Y,X+W,Y);
+  g.addColorStop(0,f.frame);g.addColorStop(0.6,f.lo);g.addColorStop(1,f.lo);
+  ctx.fillStyle=g;ctx.fillRect(X+W-FR,Y,FR,H);
+
+  // Powder coat / anodise micro-texture (horizontal brush lines)
+  ctx.save();ctx.globalAlpha=0.07;ctx.strokeStyle=f.hi;ctx.lineWidth=0.3;
+  for(let i=Y;i<Y+H;i+=1.4){ctx.beginPath();ctx.moveTo(X,i);ctx.lineTo(X+W,i);ctx.stroke();}
+  ctx.restore();
+
+  // Sharp top highlight edge (where frame catches light at top)
+  ctx.fillStyle="rgba(255,255,255,0.9)";ctx.fillRect(X,Y,W,1);
+  ctx.fillStyle="rgba(255,255,255,0.35)";ctx.fillRect(X,Y+1,W,1.5);
+  // Sharp bottom shadow edge
+  ctx.fillStyle="rgba(0,0,0,0.7)";ctx.fillRect(X,Y+H-1,W,1);
+  ctx.fillStyle="rgba(0,0,0,0.35)";ctx.fillRect(X,Y+H-2.5,W,1.5);
+  // Left light edge
+  ctx.fillStyle="rgba(255,255,255,0.4)";ctx.fillRect(X,Y,1,H);
+  // Right dark edge
+  ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(X+W-1,Y,1,H);
+
+  // ── LAYER 4: TRACK CHANNELS ─────────────────────────────────────────────────
+  // Top track — deep channel recessed into frame
+  const TCY=Y+FR;
+  ctx.fillStyle=f.lo;ctx.fillRect(IX,TCY,IW,TK);
+  // Track groove shadows for each track rail
+  for(let t=0;t<tracks;t++){
+    const ty=TCY+t*(TK/tracks);
+    g=ctx.createLinearGradient(0,ty,0,ty+TK/tracks);
+    g.addColorStop(0,"rgba(0,0,0,0.55)");g.addColorStop(0.4,"rgba(0,0,0,0.25)");g.addColorStop(1,"rgba(0,0,0,0.1)");
+    ctx.fillStyle=g;ctx.fillRect(IX,ty,IW,TK/tracks);
+    // Rail highlight top
+    ctx.fillStyle="rgba(255,255,255,0.07)";ctx.fillRect(IX,ty,IW,0.8);
+    // Rail shadow bottom
+    ctx.fillStyle="rgba(0,0,0,0.4)";ctx.fillRect(IX,ty+TK/tracks-0.8,IW,0.8);
+  }
+
+  // Bottom sill — same treatment
+  const SCY=IY+IH;
+  ctx.fillStyle=f.lo;ctx.fillRect(IX,SCY,IW,TK);
+  for(let t=0;t<tracks;t++){
+    const ty=SCY+t*(TK/tracks);
+    g=ctx.createLinearGradient(0,ty,0,ty+TK/tracks);
+    g.addColorStop(0,"rgba(0,0,0,0.45)");g.addColorStop(1,"rgba(0,0,0,0.08)");
+    ctx.fillStyle=g;ctx.fillRect(IX,ty,IW,TK/tracks);
+    ctx.fillStyle="rgba(255,255,255,0.06)";ctx.fillRect(IX,ty,IW,0.8);
+  }
+
+  // ── LAYER 5: SHUTTER PANELS ─────────────────────────────────────────────────
+  for(let si=0;si<sh;si++){
+    const SX=IX+si*SPW;
+    // Glass area (leaving room for shutter profiles)
+    const GX=SX+FR,GY=IY+FR,GW=SPW-FR*2,GH=IH-FR*2;
+
+    // Shutter frame — 4-face profile (same physics as outer frame, smaller)
+    // Top rail of shutter
+    g=ctx.createLinearGradient(SX,IY,SX,IY+FR);
+    g.addColorStop(0,f.hi);g.addColorStop(0.5,f.mid);g.addColorStop(1,f.frame);
+    ctx.fillStyle=g;ctx.fillRect(SX,IY,SPW,FR);
+    // Bottom rail
+    g=ctx.createLinearGradient(SX,IY+IH-FR,SX,IY+IH);
+    g.addColorStop(0,f.frame);g.addColorStop(1,f.lo);
+    ctx.fillStyle=g;ctx.fillRect(SX,IY+IH-FR,SPW,FR);
+    // Left stile
+    g=ctx.createLinearGradient(SX,IY,SX+FR,IY);
+    g.addColorStop(0,f.hi);g.addColorStop(0.55,f.mid);g.addColorStop(1,f.frame);
+    ctx.fillStyle=g;ctx.fillRect(SX,IY,FR,IH);
+    // Right stile
+    g=ctx.createLinearGradient(SX+SPW-FR,IY,SX+SPW,IY);
+    g.addColorStop(0,f.frame);g.addColorStop(0.7,f.lo);
+    ctx.fillStyle=g;ctx.fillRect(SX+SPW-FR,IY,FR,IH);
+
+    // Shutter micro-texture
+    ctx.save();ctx.globalAlpha=0.055;ctx.strokeStyle=f.hi;ctx.lineWidth=0.3;
+    for(let i=IY;i<IY+IH;i+=1.4){ctx.beginPath();ctx.moveTo(SX,i);ctx.lineTo(SX+SPW,i);ctx.stroke();}
+    ctx.restore();
+
+    // Shutter frame edge highlights
+    ctx.fillStyle="rgba(255,255,255,0.6)";ctx.fillRect(SX,IY,SPW,0.8);
+    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(SX,IY+IH-0.8,SPW,0.8);
+    ctx.fillStyle="rgba(255,255,255,0.3)";ctx.fillRect(SX,IY,0.8,IH);
+    ctx.fillStyle="rgba(0,0,0,0.35)";ctx.fillRect(SX+SPW-0.8,IY,0.8,IH);
+
+    // ── GLASS — clear see-through + physical properties ──────────────────────
+    ctx.save();
+    ctx.beginPath();ctx.rect(GX,GY,GW,GH);ctx.clip();
+
+    // Step 1: Copy background (makes glass completely transparent)
+    ctx.drawImage(bgCv,0,0,cv.width,cv.height);
+
+    // Step 2: Very subtle blue-green glass body colour
+    if(GT>0){
+      ctx.globalAlpha=GT/100*0.6;
+      // Non-uniform — slightly darker at edges like real glass thickness
+      const gtg=ctx.createRadialGradient(GX+GW*0.4,GY+GH*0.3,0,GX+GW/2,GY+GH/2,Math.max(GW,GH)*0.7);
+      gtg.addColorStop(0,"rgba(180,220,240,0.2)");
+      gtg.addColorStop(1,"rgba(140,185,210,0.6)");
+      ctx.fillStyle=gtg;ctx.fillRect(GX,GY,GW,GH);
+    }
+    ctx.restore();
+
+    // Step 3: Primary diagonal reflection (the main white sweep — most important!)
+    if(RE>0){
+      ctx.save();
+      ctx.beginPath();ctx.rect(GX,GY,GW,GH);ctx.clip();
+
+      // Main bright diagonal band (upper-left to center)
+      ctx.globalAlpha=RE/100*0.75;
+      g=ctx.createLinearGradient(GX+GW*0.05,GY,GX+GW*0.65,GY+GH*0.8);
+      g.addColorStop(0,"rgba(255,255,255,0)");
+      g.addColorStop(0.3,"rgba(255,255,255,0)");
+      g.addColorStop(0.42,"rgba(255,255,255,1)");
+      g.addColorStop(0.50,"rgba(255,255,255,0.7)");
+      g.addColorStop(0.60,"rgba(255,255,255,0.15)");
+      g.addColorStop(0.75,"rgba(255,255,255,0)");
+      g.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=g;ctx.fillRect(GX,GY,GW,GH);
+
+      // Secondary smaller streak (upper-right corner)
+      ctx.globalAlpha=RE/100*0.3;
+      g=ctx.createLinearGradient(GX+GW*0.55,GY,GX+GW,GY+GH*0.45);
+      g.addColorStop(0,"rgba(255,255,255,0)");
+      g.addColorStop(0.25,"rgba(255,255,255,0.9)");
+      g.addColorStop(0.55,"rgba(255,255,255,0.2)");
+      g.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=g;ctx.fillRect(GX+GW*0.4,GY,GW*0.6,GH*0.5);
+
+      // Subtle bottom-left secondary (bounced light)
+      ctx.globalAlpha=RE/100*0.12;
+      g=ctx.createLinearGradient(GX,GY+GH*0.6,GX+GW*0.3,GY+GH);
+      g.addColorStop(0,"rgba(255,255,255,0)");
+      g.addColorStop(0.4,"rgba(255,255,255,0.5)");
+      g.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=g;ctx.fillRect(GX,GY+GH*0.55,GW*0.35,GH*0.45);
+
+      ctx.restore();
+    }
+
+    // Step 4: Glass physical edge catches (critical for realism)
+    // Top edge — bright catch where glass meets frame
+    ctx.save();
+    ctx.globalAlpha=0.95;
+    ctx.fillStyle="rgba(255,255,255,0.98)";ctx.fillRect(GX,GY,GW,1.2);
+    ctx.globalAlpha=0.5;
+    ctx.fillStyle="rgba(255,255,255,0.6)";ctx.fillRect(GX,GY+1.2,GW,1.5);
+    // Bottom edge shadow
+    ctx.globalAlpha=0.6;
+    ctx.fillStyle="rgba(0,0,0,0.65)";ctx.fillRect(GX,GY+GH-1.2,GW,1.2);
+    ctx.globalAlpha=0.3;
+    ctx.fillStyle="rgba(0,0,0,0.35)";ctx.fillRect(GX,GY+GH-2.5,GW,1.3);
+    // Left edge catch
+    ctx.globalAlpha=0.35;
+    ctx.fillStyle="rgba(255,255,255,0.7)";ctx.fillRect(GX,GY,1.2,GH);
+    // Right edge shadow
+    ctx.globalAlpha=0.25;
+    ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(GX+GW-1.2,GY,1.2,GH);
+    ctx.restore();
+
+    // Step 5: Wool pile rubber seals (black gaskets between glass and frame)
+    ctx.fillStyle="rgba(8,8,8,0.9)";
+    ctx.fillRect(GX,GY-1.5,GW,1.5);   // top seal
+    ctx.fillRect(GX,GY+GH,GW,1.5);    // bottom seal
+    ctx.fillRect(GX-1.5,GY,1.5,GH);   // left seal
+    ctx.fillRect(GX+GW,GY,1.5,GH);    // right seal
+
+    // ── ROLLER BEARINGS ────────────────────────────────────────────────────
+    const wr=Math.max(2.5,FR*0.35);
+    [SX+FR*0.9,SX+SPW-FR*0.9].forEach(bx=>{
+      const by=IY+IH-FR*0.6;
+      // Wheel shadow on track
+      ctx.save();ctx.globalAlpha=0.4;ctx.fillStyle="#000";
+      ctx.beginPath();ctx.ellipse(bx,by+wr*0.8,wr*1.1,wr*0.3,0,0,Math.PI*2);ctx.fill();ctx.restore();
+      // Wheel body (metallic radial gradient)
+      g=ctx.createRadialGradient(bx-wr*0.35,by-wr*0.35,0,bx,by,wr);
+      g.addColorStop(0,"#d0d0d0");g.addColorStop(0.3,"#909090");g.addColorStop(0.75,"#484848");g.addColorStop(1,"#181818");
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by,wr,0,Math.PI*2);ctx.fill();
+      // Wheel sheen
+      ctx.fillStyle="rgba(255,255,255,0.6)";ctx.beginPath();ctx.arc(bx-wr*0.3,by-wr*0.32,wr*0.42,0,Math.PI*2);ctx.fill();
+      // Axle hole
+      ctx.fillStyle="rgba(0,0,0,0.7)";ctx.beginPath();ctx.arc(bx,by,wr*0.25,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="rgba(255,255,255,0.15)";ctx.beginPath();ctx.arc(bx-0.5,by-0.5,wr*0.12,0,Math.PI*2);ctx.fill();
+    });
+
+    // ── HANDLE (slim bar style like reference photo) ───────────────────────
+    const isH=co?(si===Math.floor(sh/2)-1||si===Math.floor(sh/2)):si===sh-1;
+    if(isH&&nc===0){
+      const side=co&&si===Math.floor(sh/2)?1:-1;
+      // Handle sits on inner edge of shutter
+      const HX=side===-1?SX+SPW-FR+1.5:SX+FR-4;
+      const HY=IY+IH*0.35,HW=FR*0.5,HH=IH*0.3;
+      // Mounting plate shadow
+      ctx.fillStyle="rgba(0,0,0,0.3)";
+      ctx.fillRect(HX-1,HY-1,HW+2,HH+2);
+      // Handle gradient (metallic)
+      g=ctx.createLinearGradient(HX,HY,HX+HW,HY);
+      g.addColorStop(0,f.hi);g.addColorStop(0.2,f.hi);
+      g.addColorStop(0.45,f.mid);g.addColorStop(0.7,f.frame);g.addColorStop(1,f.lo);
+      ctx.fillStyle=g;ctx.fillRect(HX,HY,HW,HH);
+      // Handle highlight line
+      ctx.fillStyle="rgba(255,255,255,0.7)";ctx.fillRect(HX+1,HY+HH*0.12,1.2,HH*0.76);
+      // Handle screw dots (top & bottom mounting)
+      [HY+HH*0.12,HY+HH*0.88].forEach(sy=>{
+        // Screw head
+        g=ctx.createRadialGradient(HX+HW/2-0.5,sy-0.5,0,HX+HW/2,sy,2.5);
+        g.addColorStop(0,f.hi);g.addColorStop(1,f.lo);
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(HX+HW/2,sy,2.2,0,Math.PI*2);ctx.fill();
+        // Phillips cross
+        ctx.strokeStyle="rgba(0,0,0,0.4)";ctx.lineWidth=0.8;
+        ctx.beginPath();ctx.moveTo(HX+HW/2-1.2,sy);ctx.lineTo(HX+HW/2+1.2,sy);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(HX+HW/2,sy-1.2);ctx.lineTo(HX+HW/2,sy+1.2);ctx.stroke();
+      });
+    }
+
+    // ── INTERLOCK PROFILE between shutters ────────────────────────────────
+    if(si<sh-1){
+      const ILX=SX+SPW-2.5;
+      // Interlock body gradient (3-tone — lit centre)
+      g=ctx.createLinearGradient(ILX,IY,ILX+5,IY);
+      g.addColorStop(0,f.lo);g.addColorStop(0.35,f.frame);g.addColorStop(0.55,f.hi);
+      g.addColorStop(0.75,f.mid);g.addColorStop(1,f.lo);
+      ctx.fillStyle=g;ctx.fillRect(ILX,IY,5,IH);
+      // Wool pile seals on both sides of interlock
+      ctx.fillStyle="rgba(5,5,5,0.85)";
+      ctx.fillRect(ILX,IY,0.9,IH);
+      ctx.fillRect(ILX+4.1,IY,0.9,IH);
+      // Interlock edge highlight
+      ctx.fillStyle="rgba(255,255,255,0.3)";ctx.fillRect(ILX+1.5,IY,0.7,IH);
+    }
+  }
+
+  // ── LAYER 6: CENTRE DIVIDER for centre-opening types ─────────────────────
+  if(co){
+    const CDX=IX+(shAW/2)-FR*0.6;
+    g=ctx.createLinearGradient(CDX,Y,CDX+FR*1.2,Y);
+    g.addColorStop(0,f.lo);g.addColorStop(0.2,f.frame);g.addColorStop(0.45,f.hi);
+    g.addColorStop(0.7,f.mid);g.addColorStop(1,f.lo);
+    ctx.fillStyle=g;ctx.fillRect(CDX,Y+FR,FR*1.2,H-FR*2);
+    ctx.fillStyle="rgba(255,255,255,0.5)";ctx.fillRect(CDX+0.5,Y+FR,1,H-FR*2);
+    ctx.fillStyle="rgba(0,0,0,0.4)";ctx.fillRect(CDX+FR*1.2-1,Y+FR,1,H-FR*2);
+  }
+
+  // ── LAYER 7: MOSQUITO NET PANELS ─────────────────────────────────────────
+  // Net is on Track 3 (FRONT/outermost track).
+  // Net panels park on the RIGHT side of the window.
+  // They visually overlap the last glass shutter — this is CORRECT:
+  // they are on a different (front) track, so depth-wise they don't conflict.
+  // Net panel width = SPW (half inner width for 1 net, quarter for 2 nets)
+  if(nc>0){
+    const NZONESTART=IX+IW/2;    // net zone starts at right half
+    const netPW=(IW/2)/nc;           // each net panel = half / nc
+    for(let ni=0;ni<nc;ni++){
+      const NPX=NZONESTART+ni*netPW;
+      const NFRW=FR*0.7;
+      const NGX=NPX+NFRW,NGY=IY+NFRW,NGW=netPW-NFRW*2,NGH=IH-NFRW*2;
+
+      // Net shutter 4-face frame
+      g=ctx.createLinearGradient(NPX,IY,NPX,IY+NFRW);
+      g.addColorStop(0,f.hi);g.addColorStop(1,f.frame);
+      ctx.fillStyle=g;ctx.fillRect(NPX,IY,netPW,NFRW);
+      g=ctx.createLinearGradient(NPX,IY+IH-NFRW,NPX,IY+IH);
+      g.addColorStop(0,f.frame);g.addColorStop(1,f.lo);
+      ctx.fillStyle=g;ctx.fillRect(NPX,IY+IH-NFRW,netPW,NFRW);
+      g=ctx.createLinearGradient(NPX,IY,NPX+NFRW,IY);
+      g.addColorStop(0,f.hi);g.addColorStop(1,f.frame);
+      ctx.fillStyle=g;ctx.fillRect(NPX,IY,NFRW,IH);
+      g=ctx.createLinearGradient(NPX+netPW-NFRW,IY,NPX+netPW,IY);
+      g.addColorStop(0,f.frame);g.addColorStop(1,f.lo);
+      ctx.fillStyle=g;ctx.fillRect(NPX+netPW-NFRW,IY,NFRW,IH);
+
+      // Mesh dark background
+      ctx.fillStyle="rgba(4,18,10,0.94)";ctx.fillRect(NGX,NGY,NGW,NGH);
+
+      // SS304 wire grid
+      const MSP=Math.max(2.5,Math.min(5,NGW/14));
+      ctx.strokeStyle="rgba(180,220,190,0.52)";ctx.lineWidth=0.45;
+      for(let my=NGY;my<=NGY+NGH;my+=MSP){ctx.beginPath();ctx.moveTo(NGX,my);ctx.lineTo(NGX+NGW,my);ctx.stroke();}
+      for(let mx=NGX;mx<=NGX+NGW;mx+=MSP){ctx.beginPath();ctx.moveTo(mx,NGY);ctx.lineTo(mx,NGY+NGH);ctx.stroke();}
+      // Diagonal diamond pattern
+      ctx.strokeStyle="rgba(140,200,160,0.18)";ctx.lineWidth=0.3;
+      for(let d=-NGH;d<NGW+NGH;d+=MSP*2){
+        ctx.beginPath();
+        ctx.moveTo(NGX+Math.max(0,d),NGY+Math.max(0,-d));
+        ctx.lineTo(NGX+Math.min(NGW,d+NGH),NGY+Math.min(NGH,d+NGH));
+        ctx.stroke();
+      }
+      // Mesh border
+      ctx.strokeStyle="rgba(90,186,130,0.85)";ctx.lineWidth=0.9;
+      ctx.strokeRect(NGX,NGY,NGW,NGH);
+
+      // Frame edge highlights
+      ctx.fillStyle="rgba(255,255,255,0.2)";ctx.fillRect(NPX,IY,netPW,0.8);
+      ctx.fillStyle="rgba(0,0,0,0.35)";ctx.fillRect(NPX,IY+IH-0.8,netPW,0.8);
+
+      // Net roller wheels
+      const nwr=Math.max(2,FR*0.28);
+      const nby=IY+IH-nwr*1.1;
+      [NPX+NFRW+3,NPX+netPW-NFRW-3].forEach(bx=>{
+        g=ctx.createRadialGradient(bx-nwr*0.3,nby-nwr*0.3,0,bx,nby,nwr);
+        g.addColorStop(0,"#6a9a7a");g.addColorStop(0.5,"#2a5a3a");g.addColorStop(1,"#0a2a12");
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,nby,nwr,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle="rgba(255,255,255,0.3)";
+        ctx.beginPath();ctx.arc(bx-nwr*0.3,nby-nwr*0.3,nwr*0.35,0,Math.PI*2);ctx.fill();
+      });
+    }
+  }
+
+    // ── LAYER 8: AMBIENT LIGHT MATCH ─────────────────────────────────────────
+  // Blend window into scene — darkens slightly to match room lighting
+  if(AM<100){
+    ctx.save();ctx.globalAlpha=(1-AM/100)*0.3;
+    ctx.fillStyle="#000";ctx.fillRect(X,Y,W,H);ctx.restore();
+  }
+
+  // ── LAYER 9: FINAL FRAME BORDER ──────────────────────────────────────────
+  // Outer dark border (window frame edge against wall)
+  ctx.strokeStyle=f.edge;ctx.lineWidth=1.5;ctx.strokeRect(X+0.75,Y+0.75,W-1.5,H-1.5);
+  // Inner highlight (top-left corner catches light)
+  ctx.strokeStyle="rgba(255,255,255,0.15)";ctx.lineWidth=0.5;ctx.strokeRect(X+1.5,Y+1.5,W-3,H-3);
+}
+
+function draw(){
+  if(!bgImg)return;
+  const W=sl("ww"),H=sl("wh"),FR=sl("fw"),GT=sl("gt"),RE=sl("re"),DS=sl("ds"),AM=sl("am");
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(bgImg,0,0,cv.width,cv.height);
+  drawWindow(wx,wy,W,H,FR,GT,RE,DS,AM,FINISHES[fi],TYPES[document.getElementById("typeS").value]);
+}
+
+function getPos(e){
+  const r=cv.getBoundingClientRect(),sc=cv.width/r.width;
+  const cx=e.touches?e.touches[0].clientX:e.clientX;
+  const cy=e.touches?e.touches[0].clientY:e.clientY;
+  return{x:(cx-r.left)*sc,y:(cy-r.top)*sc};
+}
+cv.addEventListener("mousedown",e=>{const p=getPos(e),W=sl("ww"),H=sl("wh");if(p.x>=wx&&p.x<=wx+W&&p.y>=wy&&p.y<=wy+H){drag=true;dox=p.x-wx;doy=p.y-wy;cv.style.cursor="grabbing";}});
+cv.addEventListener("mousemove",e=>{if(!drag)return;e.preventDefault();const p=getPos(e);wx=Math.max(0,Math.min(cv.width-sl("ww"),p.x-dox));wy=Math.max(0,Math.min(cv.height-sl("wh"),p.y-doy));draw();});
+cv.addEventListener("mouseup",()=>{drag=false;cv.style.cursor="crosshair";});
+cv.addEventListener("mouseleave",()=>{drag=false;cv.style.cursor="crosshair";});
+cv.addEventListener("touchstart",e=>{e.preventDefault();const p=getPos(e),W=sl("ww"),H=sl("wh");if(p.x>=wx&&p.x<=wx+W&&p.y>=wy&&p.y<=wy+H){drag=true;dox=p.x-wx;doy=p.y-wy;}},{passive:false});
+cv.addEventListener("touchmove",e=>{e.preventDefault();if(!drag)return;const p=getPos(e);wx=Math.max(0,Math.min(cv.width-sl("ww"),p.x-dox));wy=Math.max(0,Math.min(cv.height-sl("wh"),p.y-doy));draw();},{passive:false});
+cv.addEventListener("touchend",()=>{drag=false;});
+
+function save(){
+  if(!bgImg){alert("Upload a photo first");return;}
+  const a=document.createElement("a");a.download="window-preview.png";a.href=cv.toDataURL("image/png",1);a.click();
+}
+
+function addToQuote(){
+  const sid=document.getElementById("serS").value;
+  const tid=document.getElementById("typeS").value;
+  const loc=document.getElementById("locIn").value;
+  const quoteTid=VIS_TO_QUOTE[tid]||"2T2S";
+  // Save to localStorage for main app to pick up
+  try{
+    const SK="acp_v2";
+    const d=JSON.parse(localStorage.getItem(SK)||"{}");
+    const nr={id:Math.random().toString(36).slice(2,9),location:loc||"",seriesId:sid,typeId:quoteTid,W:"",H:"",qty:1,lock:"concealed",cid:"white",calc:null};
+    const rows=d.qrows||[];
+    rows.push(nr);
+    d.qrows=rows;
+    localStorage.setItem(SK,JSON.stringify(d));
+    document.getElementById("addedMsg").style.display="block";
+    setTimeout(()=>document.getElementById("addedMsg").style.display="none",3000);
+  }catch(e){alert("Could not add to quotation: "+e);}
+}
+</script>
+</body>
+</html>
