@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AlumCalc Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6fb;color:#1e2840;font-family:'Segoe UI',system-ui,sans-serif}
+input,select,textarea{font-family:inherit;outline:none;background:#fff;border:1px solid #dde2ee;border-radius:6px;color:#1e2840;padding:7px 10px;font-size:13px;width:100%}
+input:focus,select:focus{border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
+table{border-collapse:collapse;width:100%}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:#c8d0e0;border-radius:4px}
+.ntab{padding:9px 13px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;border-bottom:3px solid transparent;color:rgba(255,255,255,0.7);transition:.15s;white-space:nowrap}
+.ntab.on{color:#fff;border-bottom-color:#fff}
+.ntab:hover{color:#fff}
+.pill{padding:5px 11px;border-radius:6px;border:1px solid;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;transition:.15s}
+.card{background:#fff;border:1px solid #e4e8f0;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.lbl{font-size:11px;color:#6b7a99;font-weight:600;display:block;margin-bottom:3px;margin-top:8px}
+.th{padding:7px 8px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border-bottom:1px solid #dde8ff;text-align:left;white-space:nowrap}
+.thr{padding:7px 8px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border-bottom:1px solid #dde8ff;text-align:right;white-space:nowrap}
+.td{padding:6px 8px;font-size:12px;border-bottom:1px solid #f0f2f8}
+.tdr{padding:6px 8px;font-size:12px;border-bottom:1px solid #f0f2f8;text-align:right}
+.g2{display:grid;grid-template-columns:320px 1fr;gap:14px}
+.g2s{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:700px){.g2{grid-template-columns:1fr}.g2s{grid-template-columns:1fr}.g3{grid-template-columns:1fr}.hidemob{display:none}}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fi .2s ease}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+input[type=range]{padding:0;touch-action:pan-x;cursor:pointer;accent-color:#2563eb}
+button:active{opacity:.85}
+</style>
+</head>
+<body>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;color:#6b7a99"><div style="font-size:36px">🪟</div><div>Loading AlumCalc Pro...</div></div></div>
+<script type="text/babel">
+const {useState,useMemo,useEffect,useRef}=React;
+
+// ─── STORAGE ────────────────────────────────────────────────────────────────
+const SK="acp_v2";
+function load(k,d){try{const s=JSON.parse(localStorage.getItem(SK)||"{}");return s[k]??d;}catch{return d;}}
+function save(k,v){try{const s=JSON.parse(localStorage.getItem(SK)||"{}");s[k]=v;localStorage.setItem(SK,JSON.stringify(s));}catch{}}
+function useSaved(k,d){
+  const [v,sv]=useState(()=>load(k,d));
+  function set(x){const n=typeof x==="function"?x(v):x;sv(n);save(k,n);}
+  return [v,set];
+}
+const HK="acp_hist_v2";
+function loadHist(){try{return JSON.parse(localStorage.getItem(HK)||"[]");}catch{return[];}}
+function saveHist(h){try{localStorage.setItem(HK,JSON.stringify(h));}catch{}}
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const SERIES={
+  "29slim":{id:"29slim",label:"29mm Slim",color:"#2563eb",wt:{t2:1.317,t3:1.943,sH:.942,sW:.942,cap:1.17,kpa:1.063,slim:.547,cc:.532},hasCap:true,hasKPA:true,types:["2T2S","3T3S","2T4SCO","3T6SCO","3T2S1N","3T4S2N"]},
+  "25mm":{id:"25mm",label:"25mm Prestige",color:"#7c3aed",wt:{t2:1.01,t3:1.238,sH:.741,sW:.741,cap:.18,kpa:.975,slim:.461,csW:.741},hasCap:true,hasKPA:true,types:["2T2S","3T3S"]},
+  "27mm":{id:"27mm",label:"27mm",color:"#059669",wt:{t2:.725,t3:1.172,sH:.716,sW:.716,interlock:.309},hasCap:false,hasKPA:false,types:["2T2S","3T3S","3T2S1N"]},
+  "35mm":{id:"35mm",label:"35mm",color:"#d97706",wt:{t2:1.996,t3:2.809,sH:1.326,sW:1.326,kpa:1.063,slim:.481,csW:1.326},hasCap:false,hasKPA:true,types:["2T2S","3T3S"]},
+  "37mm":{id:"37mm",label:"37mm",color:"#dc2626",wt:{t2:1.84,t3:2.678,sH:1.364,sW:1.364,kpa:1.063,slim:.689,csW:1.364},hasCap:false,hasKPA:true,types:["2T2S","3T3S"]},
+};
+const TYPES=[
+  {id:"2T2S",  label:"2T-2S",  full:"2 Track 2 Shutter",        tr:2,sh:2,net:false,co:false},
+  {id:"3T3S",  label:"3T-3S",  full:"3 Track 3 Shutter",        tr:3,sh:3,net:false,co:false},
+  {id:"2T4SCO",label:"2T-4SCO",full:"2 Track 4 Shutter Centre",tr:2,sh:4,net:false,co:true},
+  {id:"3T6SCO",label:"3T-6SCO",full:"3 Track 6 Shutter Centre",tr:3,sh:6,net:false,co:true},
+  {id:"3T2S1N",label:"3T-2S+N",full:"3 Track 2 Shutter + Net",  tr:3,sh:2,net:true, co:false,nc:1},
+  {id:"3T4S2N",label:"3T-4S+2N",full:"3 Track 4 Shutter + 2Net",tr:3,sh:4,net:true, co:false,nc:2},
+];
+const COLORS=[
+  {id:"white", label:"White",      hex:"#F0F0EB",add:12},
+  {id:"black", label:"Black",      hex:"#2a2a2a",add:15},
+  {id:"grey",  label:"Grey",       hex:"#8a8a8a",add:12},
+  {id:"custom",label:"Custom RAL", hex:"#c084fc",add:25},
+];
+const DR={al:350,wst:.10,g5:55,net:35,ep:10,lb2:60,lb3:65,tr:100,pc:0,
+  b2:80,b3:110,cl:90,cl3:210,mp:300,nh:45,tn:25,pr:23,crd:45,
+  alp:5,wp:1,wd:7,fn:4,ws:3,bs:35,st:33,ad:45,si:185,kp:25,sl:3,ic:4.5};
+
+const mf=m=>m/304.8;
+const sf=(w,h)=>(w/304.8)*(h/304.8);
+const fm=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const fn=(n,d=0)=>typeof n==="number"?n.toFixed(d):"-";
+
+// ─── CALC ENGINE ─────────────────────────────────────────────────────────────
+function doCalc(W,H,type,series,rates,lock,cid){
+  const w=+W,h=+H;
+  if(!w||!h||w<200||h<200)return null;
+  const wt=series.wt,isKPA=series.hasKPA&&h>1800;
+  const {tr,sh:SH,co,net:hn,nc=0}=type;
+  const secs=[];
+  const add=(n,sz,q,wg)=>{const kg=(sz/1000)*q*wg;secs.push({n,sz,q,mtr:(sz/1000)*q,wt:wg,kg,amt:kg*rates.al});};
+  const tw=tr===2?wt.t2:wt.t3;
+  add(tr+" Track W",w,2,tw);add(tr+" Track H",h,2,tw);
+  let sw;
+  if(!co){
+    if(tr===2){sw=(w-107)/2;add("Shutter Bot",sw,4,wt.sW);add("Shutter H",h-85,SH,wt.sH);}
+    else{sw=(w-106)/3;add("Shutter Bot",sw,4,wt.sW);add("Shutter H",h-85,2,wt.sH);add("Centre Shut",sw-23,2,wt.csW||wt.sW);}
+  }else{sw=(w-136)/4;add("Shutter Bot",sw,8,wt.sW);if(tr===3)add("Centre Shut",sw-22,4,wt.csW||wt.sW);add("Shutter H",h-85,4,wt.sH);}
+  if(series.hasCap)add("Track Cap",w-101,tr,wt.cap);
+  let ik=co?(tr===2?2:4):(tr===2?1:2),is2=ik;
+  if(!isKPA||!series.hasKPA)ik=0;
+  if(series.id==="27mm"){add("Interlock",h-85,is2,wt.interlock);}
+  else{if(ik>0)add("Interlock KPA",h-85,ik,wt.kpa);add("Interlock Slim",h-85,is2,wt.slim);if(co)add("Centre Clip",h-85,1,.532);}
+  if(hn){add("Mesh H",h-85,nc,.982);add("Mesh W",sw||(w-107)/2,nc*2,.982);add("Mesh IL",h-85,nc,.505);add("Mesh Clip",h-103,nc*4,.144);}
+  const twt=secs.reduce((s,x)=>s+x.kg,0),wst=twt*rates.wst,alAmt=(twt+wst)*rates.al;
+  const glass=[];
+  const gsw=co?sw-37:(tr===2?(w-107)/2:(w-106)/3)-37,gsh=h-85-103;
+  glass.push({n:"5mm Clear Glass",sw:gsw,sh:gsh,q:co?4:2});
+  if(tr===3&&!co)glass.push({n:"5mm Clear (Centre)",sw:(w-106)/3-23+27,sh:gsh,q:1});
+  if(co&&tr===3)glass.push({n:"5mm Clear (Centre)",sw:sw-22+27,sh:gsh,q:2});
+  if(hn)glass.push({n:"Mosquito Net SS304",sw:(w/SH)*nc,sh:h,q:nc,isNet:true});
+  glass.forEach(g=>{g.sqe=sf(g.sw,g.sh);g.tsq=g.sqe*g.q;g.amt=g.tsq*(g.isNet?rates.net:rates.g5);});
+  const glAmt=glass.reduce((s,g)=>s+g.amt,0);
+  const hw=[];const tSq=sf(w,h);
+  hw.push({n:"Bearing",q:SH*2,r:tr===3?rates.b3:rates.b2});
+  hw.push({n:"Lock",q:Math.ceil(SH/2),r:tr===3?rates.cl3:rates.cl,note:"OPT"});
+  hw.push({n:"Wool Pile W",q:+(mf(w)*(tr===2?3:SH)).toFixed(2),r:rates.wp,u:"rft"});
+  hw.push({n:"Wool Pile H",q:+(mf(h)*(tr===2?3:SH)).toFixed(2),r:rates.wp,u:"rft"});
+  hw.push({n:"Drain Cap",q:tr===2?3:4,r:rates.wd});
+  hw.push({n:"Fastener",q:SH*3,r:rates.fn});hw.push({n:"Wall Screw",q:SH*3,r:rates.ws});
+  hw.push({n:"Bump Stop",q:Math.ceil(SH/2),r:rates.bs});hw.push({n:"Sticker",q:SH*2,r:rates.st});
+  hw.push({n:"Anti Dust",q:Math.ceil(SH/2),r:rates.ad});hw.push({n:"Silicon",q:1,r:rates.si});
+  if(isKPA&&series.hasKPA)hw.push({n:"KPA Cover",q:ik*2,r:rates.kp});
+  hw.push({n:"Silicon Labour",q:+tSq.toFixed(2),r:rates.sl,u:"sqft"});
+  hw.push({n:"Interlock Cap",q:(ik+is2)*2,r:rates.ic});
+  if(hn)hw.push({n:"Anti Lift",q:4,r:rates.alp});
+  const lockAmt=lock==="mp"?rates.mp*Math.ceil(SH/2)+(SH<=2?3:SH*1.5)*(rates.nh+rates.tn)+Math.ceil(h/1000)*rates.pr+Math.ceil(SH/2)*rates.crd:0;
+  const hwAmt=hw.reduce((s,x)=>s+(+x.q)*x.r,0)+lockAmt;
+  const epW=mf(w)*SH,epH=mf(h)*SH,epT=(mf(w)+mf(h))*tr;
+  let totEp=epW+epH+epT;if(hn)totEp+=mf(w/SH*nc+h)*nc;
+  const epAmt=totEp*rates.ep;
+  const lbR=tr===2?rates.lb2:rates.lb3,lbAmt=tSq*lbR;
+  const color=COLORS.find(c=>c.id===cid)||COLORS[0];
+  const pcAmt=((rates.pc||0)+color.add)*tSq;
+  const unitTotal=alAmt+glAmt+hwAmt+epAmt+lbAmt+rates.tr+pcAmt;
+  return{w,h,type,series,tSq,secs,twt,wst,alAmt,glass,glAmt,hw,hwAmt,lockAmt,lock,epW,epH,epT,totEp,epAmt,lbR,lbAmt,pcAmt,color,transport:rates.tr,unitTotal,sqR:unitTotal/tSq,isKPA,ik,is2,sw};
+}
+
+// ─── WINDOW DIAGRAM ───────────────────────────────────────────────────────────
+function WinDiag({type,colorHex,W,H,seriesColor,sm}){
+  const PW=sm?170:290,PH=sm?120:190,FR=sm?8:11,pd=7;
+  const iW=PW-pd*2,iH=PH-pd*2;
+  const {tr,sh,co,net:hn,nc=0}=type;
+  const fc=colorHex||"#ccc";
+  const gc="#b8d8f4",nc2="#5aba8a";
+  const dim=W&&H?W+"×"+H+" mm":"";
+  const fs=sm?7:10;
+  const TK=FR*0.5;
+  const IX=pd+FR,IY=pd+FR+TK,IW2=iW-FR*2,IH2=iH-FR*2-TK*2;
+
+  // Shutter width — each shutter takes equal share of full width
+  const shW=IW2/sh;
+  // For net types: net panel parks on RIGHT half, overlapping last shutter (correct — different tracks)
+  const netW=hn?IW2*0.5/nc:0;
+
+  const arrow=i=>co?i<sh/2?"←":"→":i%2===0?"←":"→";
+
+  return (
+    React.createElement("svg",{viewBox:"0 0 "+PW+" "+(PH+18),style:{width:"100%",display:"block",margin:"0 auto"}},
+      React.createElement("rect",{x:0,y:0,width:PW,height:PH+18,fill:"#eef2f8",rx:5}),
+      // Outer frame
+      React.createElement("rect",{x:pd,y:pd,width:iW,height:iH,fill:fc,stroke:"#888",strokeWidth:2,rx:2}),
+      // Top track
+      React.createElement("rect",{x:IX,y:pd+FR,width:IW2,height:TK,fill:"rgba(0,0,0,0.28)",rx:1}),
+      // Bottom track
+      React.createElement("rect",{x:IX,y:IY+IH2,width:IW2,height:TK,fill:"rgba(0,0,0,0.22)",rx:1}),
+
+      // Glass shutters
+      ...Array.from({length:sh},(_,i)=>{
+        const SX=IX+i*shW;
+        const GX=SX+2,GY=IY+2,GW=shW-4,GH=IH2-4;
+        const isHandle=co?(i===Math.floor(sh/2)-1):(i===sh-1);
+        return React.createElement("g",{key:"s"+i},
+          React.createElement("rect",{x:SX,y:IY,width:shW,height:IH2,fill:i%2===0?fc:fc+"dd",stroke:"#999",strokeWidth:0.8,rx:0.5}),
+          React.createElement("rect",{x:GX,y:GY,width:GW,height:GH,fill:gc,fillOpacity:0.45,stroke:"#80b0d0",strokeWidth:0.5,rx:0.5}),
+          React.createElement("rect",{x:GX+1,y:GY+1,width:GW*0.4,height:GH*0.3,fill:"white",fillOpacity:0.22,rx:0.5}),
+          React.createElement("text",{x:GX+GW/2,y:GY+GH/2+4,textAnchor:"middle",fill:"#2060a0",fontSize:fs,opacity:0.65},arrow(i)),
+          React.createElement("circle",{cx:SX+4,cy:IY+IH2-2,r:sm?1.5:2.2,fill:"#555"}),
+          React.createElement("circle",{cx:SX+shW-4,cy:IY+IH2-2,r:sm?1.5:2.2,fill:"#555"}),
+          i<sh-1?React.createElement("rect",{x:SX+shW-2,y:IY,width:4,height:IH2,fill:"#aaa",rx:0.5}):null,
+          isHandle?React.createElement("rect",{x:SX+shW-FR*0.4,y:GY+GH*0.37,width:FR*0.38,height:GH*0.26,rx:FR*0.18,fill:"#888",stroke:"#666",strokeWidth:0.4}):null
+        );
+      }),
+
+      // CO centre divider
+      co?React.createElement("rect",{x:IX+IW2/2-FR*0.55,y:pd+FR,width:FR*1.1,height:iH-FR*2,fill:fc,stroke:"#888",strokeWidth:0.4,rx:0.5}):null,
+
+      // NET PANELS — park on right side (track 3, front track)
+      // Visually overlaps last glass shutter — correct because different tracks in depth
+      ...Array.from({length:nc},(_,ni)=>{
+        const NPX=IX+IW2-netW*(nc-ni);
+        const NGX=NPX+2,NGY=IY+2,NGW=netW-4,NGH=IH2-4;
+        const rows=Math.max(4,Math.floor(NGH/6));
+        const cols=Math.max(2,Math.floor(NGW/6));
+        return React.createElement("g",{key:"n"+ni},
+          React.createElement("rect",{x:NPX,y:IY,width:netW,height:IH2,fill:"#0a2016",stroke:"#3a8050",strokeWidth:1.2,rx:0.5}),
+          ...Array.from({length:rows+1},(_,r)=>React.createElement("line",{key:"r"+r,x1:NGX,y1:NGY+r*(NGH/rows),x2:NGX+NGW,y2:NGY+r*(NGH/rows),stroke:nc2,strokeWidth:0.55,opacity:0.6})),
+          ...Array.from({length:cols+1},(_,c)=>React.createElement("line",{key:"c"+c,x1:NGX+c*(NGW/cols),y1:NGY,x2:NGX+c*(NGW/cols),y2:NGY+NGH,stroke:nc2,strokeWidth:0.55,opacity:0.45})),
+          React.createElement("rect",{x:NGX,y:NGY,width:NGW,height:NGH,fill:"none",stroke:nc2,strokeWidth:0.9,rx:0.5}),
+          React.createElement("text",{x:NGX+NGW/2,y:NGY+NGH/2+3,textAnchor:"middle",fill:nc2,fontSize:sm?6:9,fontWeight:"500"},"NET"),
+          React.createElement("circle",{cx:NPX+4,cy:IY+IH2-2,r:sm?1.5:2,fill:"#2a6a3a"}),
+          React.createElement("circle",{cx:NPX+netW-4,cy:IY+IH2-2,r:sm?1.5:2,fill:"#2a6a3a"})
+        );
+      }),
+
+      // Track count dots
+      ...Array.from({length:tr},(_,t)=>React.createElement("circle",{key:"td"+t,cx:pd+3,cy:IY+IH2/2+(t-tr/2+0.5)*8,r:sm?1.5:2,fill:seriesColor||fc,opacity:0.5})),
+
+      // Dimension label
+      React.createElement("text",{x:PW/2,y:PH+13,textAnchor:"middle",fill:"#6b7a99",fontSize:sm?7:9},dim||type.label)
+    )
+  );
+}
+
+// ─── WHATSAPP ────────────────────────────────────────────────────────────────
+function shareWA(text){window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");}
+function singleMsg(res,qty,cName,pName){
+  const L=[];
+  L.push("🪟 *WINDOW ESTIMATE — ALUFABB FENESTRATION*");
+  L.push("─────────────────────");
+  if(cName)L.push("👤 Customer: *"+cName+"*");
+  if(pName)L.push("📍 Project: "+pName);
+  L.push("");L.push("📐 *Specifications*");
+  L.push("Series: "+res.series.label);
+  L.push("Type: "+res.type.full);
+  L.push("Size: "+res.w+" × "+res.h+" mm");
+  L.push("Colour: "+res.color.label);
+  L.push("Area: "+fn(res.tSq,1)+" sq.ft"+(qty>1?" | Qty: "+qty:""));
+  L.push("");L.push("💰 *Cost Breakdown*");
+  L.push("Aluminium:  "+fm(res.alAmt));
+  L.push("Glass:      "+fm(res.glAmt));
+  L.push("Hardware:   "+fm(res.hwAmt));
+  L.push("EPDM:       "+fm(res.epAmt));
+  L.push("Labour:     "+fm(res.lbAmt));
+  L.push("Transport:  "+fm(res.transport));
+  if(res.pcAmt>0)L.push("Powder Coat:"+fm(res.pcAmt));
+  L.push("─────────────────────");
+  L.push("✅ *Unit Total: "+fm(res.unitTotal)+"*");
+  if(qty>1)L.push("✅ *Total ("+qty+"): "+fm(res.unitTotal*qty)+"*");
+  L.push("📊 Rate: "+fm(res.sqR)+"/sqft");
+  L.push("");L.push("⏰ Valid 15 days | 💳 50% advance");
+  return L.join("\n");
+}
+function multiMsg(rows,cName,pName,pRef,GT,GQ,GS){
+  const valid=rows.filter(r=>r.calc);
+  const L=[];
+  L.push("🪟 *WINDOW QUOTATION — ALUFABB FENESTRATION*");
+  L.push("─────────────────────");
+  if(cName)L.push("👤 Customer: *"+cName+"*");
+  if(pName)L.push("📍 Project: "+pName);
+  if(pRef)L.push("🔢 Ref: "+pRef);
+  L.push("📅 Date: "+new Date().toLocaleDateString("en-IN"));
+  L.push("");L.push("📋 *Windows*");
+  valid.forEach((row,i)=>{
+    const r=row.calc,q=row.qty||1;
+    L.push((i+1)+". "+(row.location||"Win "+(i+1))+" | "+r.series.label+" | "+r.w+"×"+r.h+"mm | Qty:"+q+" | *"+fm(r.unitTotal*q)+"*");
+  });
+  L.push("─────────────────────");
+  L.push("📐 "+fn(GS,1)+" sq.ft | "+GQ+" windows");
+  L.push("✅ *GRAND TOTAL: "+fm(GT)+"*");
+  L.push("");L.push("⏰ Valid 15 days | 💳 50% advance");
+  return L.join("\n");
+}
+
+// ─── COST CHART ──────────────────────────────────────────────────────────────
+function CostChart({res}){
+  const [ready,setReady]=useState(false);
+  const [hov,setHov]=useState(null);
+  useEffect(()=>{const t=setTimeout(()=>setReady(true),60);return()=>clearTimeout(t);},[res]);
+  const items=[
+    {label:"Aluminium",amt:res.alAmt,color:"#2563eb",icon:"🔩"},
+    {label:"Glass",amt:res.glAmt,color:"#0ea5e9",icon:"🪟"},
+    {label:"Hardware",amt:res.hwAmt,color:"#7c3aed",icon:"🔧"},
+    {label:"EPDM",amt:res.epAmt,color:"#d97706",icon:"⭕"},
+    {label:"Labour",amt:res.lbAmt,color:"#16a34a",icon:"👷"},
+    {label:"Transport",amt:res.transport,color:"#6b7280",icon:"🚛"},
+  ];
+  if(res.pcAmt>0)items.push({label:"Powder Coat",amt:res.pcAmt,color:"#ec4899",icon:"🎨"});
+  const total=res.unitTotal;
+  return (
+    <div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>
+        {items.map((it,i)=>(
+          <div key={i} onMouseEnter={()=>setHov(i)} onMouseLeave={()=>setHov(null)}
+            style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",background:it.color+"12",borderRadius:20,border:"1px solid "+it.color+"33",cursor:"default"}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:it.color}}/>
+            <span style={{fontSize:10,color:it.color,fontWeight:700}}>{it.label}</span>
+            <span style={{fontSize:10,color:"#6b7a99"}}>{Math.round(it.amt/total*100)}%</span>
+          </div>
+        ))}
+      </div>
+      <div style={{height:10,borderRadius:5,overflow:"hidden",display:"flex",gap:1,marginBottom:12}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{height:"100%",width:ready?(it.amt/total*100)+"%":"0%",background:it.color,transition:"width 0.5s ease "+(i*0.06)+"s",opacity:hov===null||hov===i?1:0.4}}
+            onMouseEnter={()=>setHov(i)} onMouseLeave={()=>setHov(null)}/>
+        ))}
+      </div>
+      {items.map((it,i)=>{
+        const pct=it.amt/total*100;
+        return (
+          <div key={i} style={{padding:"5px 8px",borderRadius:6,background:hov===i?it.color+"10":"transparent",marginBottom:4,cursor:"default"}}
+            onMouseEnter={()=>setHov(i)} onMouseLeave={()=>setHov(null)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:12}}>{it.icon}</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#1e2840"}}>{it.label}</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:10,color:"#6b7a99"}}>{Math.round(pct)}%</span>
+                <span style={{fontSize:12,fontWeight:700,color:it.color}}>{fm(it.amt)}</span>
+              </div>
+            </div>
+            <div style={{height:5,background:"#f0f2f8",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:"100%",width:ready?pct+"%":"0%",background:it.color,borderRadius:3,transition:"width 0.4s ease "+(i*0.07)+"s"}}/>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{marginTop:10,padding:"10px 12px",background:"linear-gradient(135deg,#eff6ff,#f0fdf4)",borderRadius:8,border:"1px solid #bfdbfe",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:10,color:"#6b7a99"}}>TOTAL COST</div>
+          <div style={{fontSize:20,fontWeight:800,color:"#16a34a"}}>{fm(total)}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:10,color:"#6b7a99"}}>RATE / SQFT</div>
+          <div style={{fontSize:15,fontWeight:700,color:"#2563eb"}}>{fm(res.sqR)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SERIES COMPARE ──────────────────────────────────────────────────────────
+function SeriesCompare({sid,W,H,typeId,rates,lock,cid,onSelect}){
+  const type=TYPES.find(t=>t.id===typeId);
+  if(!type||!W||!H)return null;
+  const list=Object.values(SERIES).filter(s=>s.types.includes(typeId));
+  if(list.length<2)return null;
+  const results=list.map(s=>({s,r:doCalc(W,H,type,s,rates,lock,cid)})).filter(x=>x.r);
+  const base=results.find(x=>x.s.id===sid);
+  if(!base)return null;
+  return (
+    <div style={{background:"#fff",border:"1px solid #e4e8f0",borderRadius:10,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.04)",marginTop:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}>📊 Series Comparison</div>
+      {results.map(({s,r})=>{
+        const isCur=s.id===sid;
+        const diff=r.unitTotal-base.r.unitTotal;
+        return (
+          <div key={s.id} onClick={()=>!isCur&&onSelect(s.id)}
+            style={{padding:"9px 11px",borderRadius:8,border:"2px solid",cursor:isCur?"default":"pointer",borderColor:isCur?s.color:"#e4e8f0",background:isCur?s.color+"08":"#fafbfd",marginBottom:6,transition:"all .15s"}}
+            onMouseEnter={e=>{if(!isCur)e.currentTarget.style.borderColor=s.color;}}
+            onMouseLeave={e=>{if(!isCur)e.currentTarget.style.borderColor="#e4e8f0";}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <div style={{width:9,height:9,borderRadius:"50%",background:s.color}}/>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:13,fontWeight:700,color:s.color}}>{s.label}</span>
+                    {isCur&&<span style={{fontSize:9,padding:"1px 6px",background:s.color,color:"#fff",borderRadius:10,fontWeight:700}}>SELECTED</span>}
+                  </div>
+                  <div style={{fontSize:10,color:"#6b7a99",marginTop:1}}>
+                    {s.id==="29slim"&&"Slim profile"}
+                    {s.id==="25mm"&&"Economy option"}
+                    {s.id==="27mm"&&"Lightweight"}
+                    {s.id==="35mm"&&"Heavy duty"}
+                    {s.id==="37mm"&&"Premium heavy"}
+                  </div>
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:14,fontWeight:800,color:isCur?s.color:"#1e2840"}}>{fm(r.unitTotal)}</div>
+                {!isCur&&diff!==0&&<div style={{fontSize:10,fontWeight:700,color:diff<0?"#16a34a":"#dc2626"}}>
+                  {diff<0?"▼ Save ₹"+Math.abs(Math.round(diff)):"▲ ₹"+Math.round(diff)+" more"}
+                </div>}
+                <div style={{fontSize:9,color:"#6b7a99"}}>{fm(r.sqR)}/sqft</div>
+              </div>
+            </div>
+            <div style={{marginTop:7,height:4,background:"#f0f2f8",borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",width:Math.min(100,r.unitTotal/Math.max(...results.map(x=>x.r.unitTotal))*100)+"%",background:s.color,borderRadius:2}}/>
+            </div>
+            {!isCur&&<div style={{marginTop:5,fontSize:10,color:s.color,fontWeight:600}}>Click to switch →</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── PDF ─────────────────────────────────────────────────────────────────────
+function makePDF(res,qty,cName,pName,co,logo){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const PW=210,m=14;let y=m;
+  doc.setFillColor(29,78,216);doc.rect(0,0,PW,42,"F");
+  // Logo on PDF if uploaded
+  if(logo&&logo.startsWith("data:image")){
+    try{doc.addImage(logo,"PNG",m,6,28,28);}catch(e){}
+    doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont("helvetica","bold");
+    doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),m+32,15);
+  } else {
+    doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont("helvetica","bold");
+    doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),m,15);
+  }
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(191,219,254);
+  if(co&&co.tagline)doc.text(co.tagline,m,22);
+  const cp=[co&&co.phone,co&&co.email,co&&co.website].filter(Boolean).join("  |  ");
+  if(cp)doc.text(cp,m,28);if(co&&co.address)doc.text(co.address,m,34);
+  if(co&&co.gst){doc.setTextColor(255,255,255);doc.text("GST: "+co.gst,PW-m,14,"right");}
+  doc.setFillColor(37,99,235);doc.rect(0,42,PW,9,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("WINDOW ESTIMATE",m,49);doc.text("Date: "+new Date().toLocaleDateString("en-IN"),PW-m,49,"right");
+  y=57;
+  if(cName||pName){doc.setFillColor(239,246,255);doc.roundedRect(m,y,PW-m*2,14,2,2,"F");doc.setTextColor(30,40,64);doc.setFontSize(9);if(cName)doc.text("Customer: "+cName,m+4,y+6);if(pName)doc.text("Project: "+pName,m+4,y+11);y+=18;}
+  doc.setFillColor(239,246,255);doc.roundedRect(m,y,PW-m*2,24,2,2,"F");
+  doc.setTextColor(29,78,216);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("SPECIFICATIONS",m+4,y+7);
+  doc.setTextColor(30,40,64);doc.setFont("helvetica","normal");
+  doc.text("Series: "+res.series.label,m+4,y+13);doc.text("Width: "+res.w+" mm",m+95,y+13);
+  doc.text("Type: "+res.type.full,m+4,y+19);doc.text("Height: "+res.h+" mm",m+95,y+19);
+  doc.text("Color: "+res.color.label+" | Area: "+fn(res.tSq,1)+" sqft | Qty: "+qty,m+4,y+25);y+=30;
+  doc.setFillColor(37,99,235);doc.rect(m,y,PW-m*2,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.text("COST ITEM",m+3,y+5);doc.text("AMOUNT",PW-m-3,y+5,"right");y+=7;
+  const rows2=[["Aluminium (incl. wastage)",res.alAmt],["Glass",res.glAmt],["Hardware & Fittings",res.hwAmt],["EPDM Rubber",res.epAmt],["Labour",res.lbAmt],["Transport",res.transport]];
+  if(res.pcAmt>0)rows2.push(["Powder Coating – "+res.color.label,res.pcAmt]);
+  rows2.forEach((row,i)=>{
+    doc.setFillColor(i%2===0?239:248,i%2===0?246:249,255);doc.rect(m,y,PW-m*2,6,"F");
+    doc.setTextColor(30,40,64);doc.setFont("helvetica","normal");doc.text(row[0],m+3,y+4.5);doc.text(fm(row[1]),PW-m-3,y+4.5,"right");y+=6;
+  });
+  doc.setFillColor(29,78,216);doc.rect(m,y,PW-m*2,9,"F");
+  doc.setTextColor(134,239,172);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("TOTAL (per window)",m+3,y+6.5);doc.text(fm(res.unitTotal),PW-m-3,y+6.5,"right");y+=9;
+  if(qty>1){doc.setFillColor(37,99,235);doc.rect(m,y,PW-m*2,9,"F");doc.setTextColor(255,255,255);doc.text("TOTAL FOR "+qty+" WINDOWS",m+3,y+6.5);doc.text(fm(res.unitTotal*qty),PW-m-3,y+6.5,"right");y+=9;}
+  y+=6;doc.setTextColor(107,122,153);doc.setFontSize(8);doc.text("Rate/sqft: "+fm(res.sqR),m,y);y+=12;
+  doc.setFillColor(239,246,255);doc.roundedRect(m,y,PW-m*2,20,2,2,"F");
+  doc.setTextColor(29,78,216);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text("TERMS & CONDITIONS",m+4,y+7);
+  doc.setTextColor(107,122,153);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+  doc.text("• Valid 15 days  • 50% advance to confirm  • Prices subject to aluminium market rates",m+4,y+13);
+  doc.setFillColor(29,78,216);doc.rect(0,285,PW,12,"F");
+  doc.setTextColor(191,219,254);doc.setFontSize(7.5);doc.text((co&&co.name?co.name:"AlumCalc Pro")+" | AlumCalc Pro",PW/2,291,"center");
+  doc.save("Estimate_"+new Date().toLocaleDateString("en-IN").replace(/\//g,"-")+".pdf");
+}
+function makeMultiPDF(rows,cName,pName,pRef,co,logo){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const PW=210,m=12;let y=m;
+  doc.setFillColor(29,78,216);doc.rect(0,0,PW,44,"F");
+  doc.setFillColor(212,175,55);doc.rect(0,0,5,44,"F");
+  if(logo&&logo.startsWith("data:image")){
+    try{doc.addImage(logo,"PNG",8,7,26,26);}catch(e){}
+    doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont("helvetica","bold");
+    doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),38,16);
+  } else {
+    doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont("helvetica","bold");
+    doc.text((co&&co.name?co.name.toUpperCase():"YOUR COMPANY NAME"),14,16);
+  }
+  doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(191,219,254);
+  if(co&&co.tagline)doc.text(co.tagline,14,23);
+  const cp2=[co&&co.phone,co&&co.email].filter(Boolean).join("  |  ");
+  if(cp2)doc.text(cp2,14,29);if(co&&co.address)doc.text(co.address,14,35);
+  if(co&&co.gst){doc.setTextColor(255,255,255);doc.text("GST: "+co.gst,PW-m,14,"right");}
+  doc.setFillColor(37,99,235);doc.rect(0,44,PW,9,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(10);doc.setFont("helvetica","bold");
+  doc.text("WINDOW QUOTATION",14,51);doc.text("Date: "+new Date().toLocaleDateString("en-IN"),PW-m,51,"right");
+  y=59;
+  doc.setFillColor(239,246,255);doc.roundedRect(m,y,PW-m*2,18,2,2,"F");
+  doc.setTextColor(107,122,153);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CUSTOMER",m+4,y+6);
+  doc.setTextColor(30,40,64);if(cName)doc.text(cName,m+4,y+12);
+  doc.setTextColor(107,122,153);doc.text("PROJECT",m+95,y+6);
+  doc.setTextColor(30,40,64);if(pName)doc.text(pName,m+95,y+12);
+  if(pRef){doc.setTextColor(107,122,153);doc.text("REF: "+pRef,PW-m,y+12,"right");}
+  y+=23;
+  const TW=PW-m*2;
+  doc.setFillColor(37,99,235);doc.rect(m,y,TW,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont("helvetica","bold");
+  const cx=[m+2,m+8,m+30,m+58,m+74,m+88,m+101,m+111,m+130,m+158,m+182];
+  ["#","Location","Series/Type","W","H","Sqft","Qty","Colour","Unit ₹","Total ₹","Rate"].forEach((h,i)=>doc.text(h,cx[i],y+5));
+  y+=7;
+  let GT=0,GS=0,GQ=0;
+  rows.filter(r=>r.calc).forEach((row,idx)=>{
+    if(y>262){doc.addPage();y=20;}
+    const r=row.calc,q=row.qty||1,rt=r.unitTotal*q;
+    GT+=rt;GS+=r.tSq*q;GQ+=q;
+    doc.setFillColor(idx%2===0?239:248,idx%2===0?246:249,255);doc.rect(m,y,TW,6.5,"F");
+    const hx=r.color.hex||"#cccccc";
+    const hr=parseInt(hx.slice(1,3),16),hg=parseInt(hx.slice(3,5),16),hb=parseInt(hx.slice(5,7),16);
+    doc.setFillColor(hr,hg,hb);doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);doc.circle(cx[7]+2.5,y+3.2,2,"FD");
+    doc.setTextColor(30,40,64);doc.setFont("helvetica","normal");doc.setFontSize(7);
+    doc.text(""+(idx+1),cx[0]+3,y+4.5,{align:"center"});
+    doc.setFont("helvetica","bold");doc.text((row.location||"Win "+(idx+1)).substring(0,10),cx[1],y+4.5);
+    doc.setFont("helvetica","normal");doc.setTextColor(107,122,153);
+    doc.text((r.series.label+" "+r.type.label).substring(0,16),cx[2],y+4.5);
+    doc.setTextColor(30,40,64);
+    doc.text(""+r.w,cx[3]+13,y+4.5,{align:"right"});doc.text(""+r.h,cx[4]+13,y+4.5,{align:"right"});
+    doc.text(""+fn(r.tSq,1),cx[5]+12,y+4.5,{align:"right"});doc.text(""+q,cx[6]+8,y+4.5,{align:"center"});
+    doc.setTextColor(107,122,153);doc.text(r.color.label.substring(0,6),cx[7]+6,y+4.5);
+    doc.setTextColor(30,40,64);doc.text(fm(r.unitTotal),cx[8]+27,y+4.5,{align:"right"});
+    doc.setTextColor(22,163,74);doc.setFont("helvetica","bold");doc.text(fm(rt),cx[9]+23,y+4.5,{align:"right"});
+    doc.setTextColor(107,122,153);doc.setFont("helvetica","normal");doc.text(fm(r.sqR),cx[10]+22,y+4.5,{align:"right"});
+    y+=6.5;
+  });
+  y+=2;doc.setFillColor(29,78,216);doc.rect(m,y,TW,12,"F");
+  doc.setFillColor(212,175,55);doc.rect(m,y,3,12,"F");
+  doc.setTextColor(191,219,254);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("GRAND TOTAL",m+6,y+5);
+  doc.setTextColor(107,122,153);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(GQ+" windows  •  "+fn(GS,1)+" sqft",m+6,y+10);
+  doc.setTextColor(134,239,172);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text(fm(GT),m+TW,y+9,{align:"right"});
+  y+=18;
+  if(y>240){doc.addPage();y=20;}
+  doc.setFillColor(29,78,216);doc.roundedRect(m,y,TW,7,1,1,"F");
+  doc.setFillColor(212,175,55);doc.rect(m,y,3,7,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DETAILED BREAKDOWN PER WINDOW",m+6,y+5);y+=10;
+  rows.filter(r=>r.calc).forEach((row,idx)=>{
+    const r=row.calc,q=row.qty||1;
+    if(y>248){doc.addPage();y=20;}
+    doc.setFillColor(29,78,216);doc.roundedRect(m,y,TW,7,1,1,"F");
+    const sc=r.series.color||"#2563eb";const sr2=parseInt(sc.slice(1,3),16),sg=parseInt(sc.slice(3,5),16),sb=parseInt(sc.slice(5,7),16);
+    doc.setFillColor(sr2,sg,sb);doc.circle(m+4,y+3.5,2,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+    doc.text("Window "+(idx+1)+(row.location?" – "+row.location:"")+" | "+r.series.label+" | "+r.type.full+" | "+r.w+"×"+r.h+"mm | Qty: "+q,m+9,y+4.5);y+=7;
+    const brs=[["Aluminium",r.alAmt],["Glass",r.glAmt],["Hardware",r.hwAmt],["EPDM Rubber",r.epAmt],["Labour",r.lbAmt],["Transport",r.transport]];
+    if(r.pcAmt>0)brs.push(["Powder Coating – "+r.color.label,r.pcAmt]);
+    brs.forEach((br,bi)=>{
+      doc.setFillColor(bi%2===0?239:248,bi%2===0?246:249,255);doc.rect(m,y,TW,5,"F");
+      doc.setTextColor(30,40,64);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+      doc.text(br[0],m+4,y+3.8);doc.text(fm(br[1]),m+TW,y+3.8,{align:"right"});y+=5;
+    });
+    doc.setFillColor(29,78,216);doc.rect(m,y,TW,6,"F");
+    doc.setTextColor(134,239,172);doc.setFont("helvetica","bold");doc.setFontSize(8);
+    doc.text("Unit: "+fm(r.unitTotal)+"  ×"+q+"  =  "+fm(r.unitTotal*q),m+4,y+4.5);
+    doc.setTextColor(191,219,254);doc.setFontSize(7);doc.text(fn(r.tSq,1)+" sqft @ "+fm(r.sqR)+"/sqft",m+TW,y+4.5,{align:"right"});
+    y+=9;
+  });
+  if(y>245){doc.addPage();y=20;}
+  doc.setFillColor(239,246,255);doc.roundedRect(m,y,TW,22,2,2,"F");
+  doc.setTextColor(29,78,216);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text("TERMS & CONDITIONS",m+4,y+7);
+  doc.setTextColor(107,122,153);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+  ["Valid 15 days from date of issue.","50% advance required to confirm order.","Prices subject to aluminium market rates."].forEach((t,i)=>doc.text("• "+t,m+4,y+13+i*5));
+  const pages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);doc.setFillColor(29,78,216);doc.rect(0,287,PW,10,"F");
+    doc.setFillColor(212,175,55);doc.rect(0,287,5,10,"F");
+    doc.setTextColor(191,219,254);doc.setFontSize(7);
+    doc.text((co&&co.name?co.name:"AlumCalc Pro")+" | Page "+i+" of "+pages,PW/2,293,"center");
+  }
+  doc.save("Quotation_"+(cName||"AlumCalc")+"_"+new Date().toLocaleDateString("en-IN").replace(/\//g,"-")+".pdf");
+}
+
+// ─── LOGIN ───────────────────────────────────────────────────────────────────
+function Login({onLogin}){
+  const [ph,setPh]=useState("");
+  const [otp,setOtp]=useState("");
+  const [step,setStep]=useState("ph");
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const [sent,setSent]=useState("");
+  function send(){
+    if(!/^\d{10}$/.test(ph)){setErr("Enter valid 10-digit number");return;}
+    setErr("");setBusy(true);
+    const code=Math.floor(100000+Math.random()*900000)+"";
+    setSent(code);
+    setTimeout(()=>{setBusy(false);setStep("otp");alert("Demo OTP: "+code);},1200);
+  }
+  function verify(){if(otp===sent)onLogin(ph);else setErr("Wrong OTP. Try again.");}
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#eff6ff,#dbeafe)",padding:16}}>
+      <div style={{width:"100%",maxWidth:380}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:48,marginBottom:8}}>🪟</div>
+          <div style={{fontSize:22,fontWeight:800,color:"#1d4ed8"}}>AlumCalc Pro</div>
+          <div style={{fontSize:12,color:"#6b7a99",marginTop:4}}>Alufabb Fenestration • 5 Series</div>
+        </div>
+        <div style={{background:"#fff",borderRadius:14,padding:26,boxShadow:"0 4px 24px rgba(37,99,235,.1)",border:"1px solid #dbeafe"}}>
+          {step==="ph"?(
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:"#1e2840",marginBottom:14}}>Login with Mobile</div>
+              <label className="lbl">Mobile Number</label>
+              <div style={{display:"flex",gap:8,marginBottom:4}}>
+                <div style={{padding:"7px 10px",background:"#f0f4ff",border:"1px solid #dde2ee",borderRadius:6,fontSize:13,color:"#6b7a99",flexShrink:0}}>🇮🇳 +91</div>
+                <input type="tel" maxLength={10} value={ph} onChange={e=>setPh(e.target.value.replace(/\D/g,""))} placeholder="9876543210" onKeyDown={e=>e.key==="Enter"&&send()} style={{fontSize:16,letterSpacing:2}}/>
+              </div>
+              {err&&<div style={{fontSize:11,color:"#dc2626",marginBottom:4}}>{err}</div>}
+              <button onClick={send} disabled={busy} style={{width:"100%",marginTop:12,padding:"12px",background:busy?"#93c5fd":"#2563eb",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}}>
+                {busy?"Sending...":"Send OTP →"}
+              </button>
+            </div>
+          ):(
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:"#1e2840",marginBottom:4}}>Enter OTP</div>
+              <div style={{fontSize:12,color:"#6b7a99",marginBottom:14}}>Sent to +91 {ph} <span style={{color:"#2563eb",cursor:"pointer"}} onClick={()=>{setStep("ph");setOtp("");setErr("");}}>Change</span></div>
+              <input type="tel" maxLength={6} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,""))} placeholder="● ● ● ● ● ●" onKeyDown={e=>e.key==="Enter"&&verify()} style={{fontSize:22,letterSpacing:10,textAlign:"center"}}/>
+              {err&&<div style={{fontSize:11,color:"#dc2626",marginTop:5}}>{err}</div>}
+              <button onClick={verify} style={{width:"100%",marginTop:12,padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}}>Verify & Login ✓</button>
+              <div style={{textAlign:"center",marginTop:10,fontSize:12,color:"#6b7a99"}}>Didn't receive? <span style={{color:"#2563eb",cursor:"pointer"}} onClick={send}>Resend</span></div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CALCULATOR TAB ──────────────────────────────────────────────────────────
+function CalcTab({rates,addToQuote,co,logo,lic}){
+  const firstSeries=Object.values(SERIES).find(s=>hasSeries(lic,s.id));
+  const [sid,setSid]=useState(firstSeries?firstSeries.id:"29slim");
+  const [tid,setTid]=useState("2T2S");
+  const [W,setW]=useState("");const [H,setH]=useState("");
+  const [lock,setLock]=useState("concealed");
+  const [cid,setCid]=useState("white");
+  const [res,setRes]=useState(null);
+  const [qty,setQty]=useState(1);
+  const [dt,setDt]=useState("chart");
+  const [cName,setCName]=useState("");const [pName,setPName]=useState("");
+  const [added,setAdded]=useState(false);
+
+  const series=SERIES[sid];
+  const avTypes=TYPES.filter(t=>series.types.includes(t.id));
+  const type=avTypes.find(t=>t.id===tid)||avTypes[0];
+  const color=COLORS.find(c=>c.id===cid)||COLORS[0];
+  const prev=useMemo(()=>doCalc(W,H,type,series,rates,lock,cid),[W,H,tid,sid,rates,lock,cid]);
+
+  function handleSeries(s){setSid(s);setRes(null);const sv=SERIES[s];if(!sv.types.includes(tid))setTid(sv.types[0]);}
+
+  return (
+    <div className="g2">
+      <div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>Select Series</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {Object.values(SERIES).filter(s=>hasSeries(lic,s.id)).map(s=>(
+              <button key={s.id} className="pill" onClick={()=>handleSeries(s.id)}
+                style={{borderColor:sid===s.id?s.color:"#e4e8f0",background:sid===s.id?s.color+"15":"#fff",color:sid===s.id?s.color:"#6b7a99"}}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>Window Preview</div>
+          <WinDiag type={type} colorHex={color.hex} W={W} H={H} seriesColor={series.color}/>
+          <div style={{textAlign:"center",fontSize:11,color:"#6b7a99",marginTop:4}}>{type.full}</div>
+        </div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>Configuration</div>
+          <label className="lbl">Window Type</label>
+          <select value={type.id} onChange={e=>{setTid(e.target.value);setRes(null);}}>
+            {avTypes.map(t=><option key={t.id} value={t.id}>{t.full}</option>)}
+          </select>
+          <div className="g2s">
+            <div><label className="lbl">Width (mm)</label><input type="number" value={W} onChange={e=>{setW(e.target.value);setRes(null);}} placeholder="2000"/></div>
+            <div><label className="lbl">Height (mm)</label><input type="number" value={H} onChange={e=>{setH(e.target.value);setRes(null);}} placeholder="1500"/></div>
+          </div>
+          <div className="g2s">
+            <div><label className="lbl">Quantity</label><input type="number" value={qty} min={1} onChange={e=>setQty(+e.target.value)}/></div>
+            <div><label className="lbl">Lock</label>
+              <select value={lock} onChange={e=>setLock(e.target.value)}>
+                <option value="concealed">Concealed</option>
+                <option value="mp">Multi-Point</option>
+              </select>
+            </div>
+          </div>
+          {prev&&<div style={{marginTop:8,padding:"7px 10px",background:"#eff6ff",borderRadius:6,border:"1px solid #bfdbfe",fontSize:11}}>
+            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#6b7a99"}}>Area</span><strong style={{color:"#1d4ed8"}}>{fn(prev.tSq,1)} sq.ft</strong></div>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{color:"#6b7a99"}}>KPA</span><strong style={{color:"#1d4ed8"}}>{series.hasKPA?(prev.isKPA?"Yes":"No"):"N/A"}</strong></div>
+          </div>}
+        </div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>🎨 Colour</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+            {COLORS.map((c,i)=>(
+              <div key={i} onClick={()=>{setCid(c.id);setRes(null);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer"}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:c.hex,border:cid===c.id?"3px solid #2563eb":"3px solid #e4e8f0",boxShadow:cid===c.id?"0 0 0 2px #dbeafe":"none",transition:".15s"}} title={c.label}/>
+                <span style={{fontSize:9,color:"#6b7a99"}}>{c.label}</span>
+                <span style={{fontSize:8,color:"#d97706"}}>+₹{c.add}</span>
+              </div>
+            ))}
+          </div>
+          {prev&&<div style={{padding:"5px 8px",background:"#fffbeb",borderRadius:6,fontSize:11,display:"flex",justifyContent:"space-between",border:"1px solid #fde68a"}}>
+            <span style={{color:"#92400e"}}>Coating {fn(prev.tSq,1)} sqft × ₹{(rates.pc||0)+color.add}</span>
+            <span style={{color:"#d97706",fontWeight:700}}>{fm(prev.tSq*((rates.pc||0)+color.add))}</span>
+          </div>}
+        </div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>👤 Customer (for PDF)</div>
+          <label className="lbl">Customer Name</label><input value={cName} onChange={e=>setCName(e.target.value)} placeholder="Mr. Sharma"/>
+          <label className="lbl">Project / Site</label><input value={pName} onChange={e=>setPName(e.target.value)} placeholder="Sharma Residence"/>
+        </div>
+        <button onClick={()=>setRes(prev)} disabled={!prev}
+          style={{width:"100%",padding:"12px",background:prev?series.color:"#c5cde0",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:prev?"pointer":"not-allowed",marginBottom:8}}>
+          {prev?"📊 Generate Estimate":"Enter dimensions above"}
+        </button>
+        {res&&<button onClick={()=>{addToQuote(sid,type.id,"");setAdded(true);setTimeout(()=>setAdded(false),2000);}}
+          style={{width:"100%",padding:"10px",background:added?"#16a34a":"#1d4ed8",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+          {added?"✅ Added to Quotation!":"📋 Add to Quotation →"}
+        </button>}
+      </div>
+
+      <div>
+        {!res&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:400,background:"#fff",borderRadius:10,border:"1px solid #e4e8f0",color:"#c5cde0",textAlign:"center"}}>
+          <div style={{fontSize:48,marginBottom:12}}>🪟</div>
+          <div style={{fontSize:14,color:"#a0abc0"}}>Select series, enter dimensions<br/>and click Generate Estimate</div>
+        </div>}
+        {res&&<div className="fi">
+          <div className="card">
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:res.series.color}}/>
+              <span style={{fontSize:12,fontWeight:700,color:res.series.color}}>{res.series.label}</span>
+              <span style={{fontSize:11,color:"#6b7a99"}}>• {res.type.full}</span>
+              <span style={{marginLeft:"auto",fontSize:10,padding:"2px 7px",background:res.color.hex+"22",border:"1px solid "+res.color.hex,borderRadius:20,color:res.color.hex==="#F0F0EB"?"#666":res.color.hex}}>● {res.color.label}</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"start"}}>
+              <div>
+                {[["Aluminium",res.alAmt],["Glass",res.glAmt],["Hardware",res.hwAmt],["EPDM Rubber",res.epAmt],["Labour",res.lbAmt],["Transport",res.transport]].map(([l,v])=>(
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}><span style={{color:"#6b7a99"}}>{l}</span><span style={{fontWeight:600,color:"#1e2840"}}>{fm(v)}</span></div>
+                ))}
+                {res.pcAmt>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}><span style={{color:"#6b7a99"}}>Powder Coating</span><span style={{fontWeight:600,color:"#1e2840"}}>{fm(res.pcAmt)}</span></div>}
+              </div>
+              <div style={{background:"#eff6ff",borderRadius:10,padding:14,textAlign:"center",minWidth:130,border:"1px solid #bfdbfe"}}>
+                <div style={{fontSize:10,color:"#6b7a99",marginBottom:2}}>Per Window</div>
+                <div style={{fontSize:22,fontWeight:800,color:"#16a34a"}}>{fm(res.unitTotal)}</div>
+                <div style={{fontSize:10,color:"#6b7a99",marginTop:2}}>{fn(res.tSq,1)} sqft</div>
+                <div style={{fontSize:10,color:"#6b7a99"}}>{fm(res.sqR)}/sqft</div>
+                {qty>1&&<div><div style={{borderTop:"1px solid #dbeafe",margin:"8px 0"}}/><div style={{fontSize:10,color:"#6b7a99"}}>× {qty} windows</div><div style={{fontSize:17,fontWeight:700,color:"#1d4ed8"}}>{fm(res.unitTotal*qty)}</div></div>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button onClick={()=>makePDF(res,qty,cName,pName,co)} style={{flex:1,padding:"10px",background:"#16a34a",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer"}}>📄 PDF</button>
+              <button onClick={()=>shareWA(singleMsg(res,qty,cName,pName))} style={{flex:1,padding:"10px",background:"#25D366",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer"}}>💬 WhatsApp</button>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+            {["chart","alum","glass","hw","rubber","labour"].map(t=>(
+              <button key={t} onClick={()=>setDt(t)} style={{padding:"5px 11px",borderRadius:6,border:"1px solid",cursor:"pointer",fontSize:11,fontWeight:600,background:dt===t?series.color:"#fff",borderColor:dt===t?series.color:"#dde2ee",color:dt===t?"#fff":"#6b7a99"}}>
+                {t==="chart"?"📊 Chart":t==="alum"?"Aluminium":t==="rubber"?"EPDM":t==="hw"?"Hardware":t.charAt(0).toUpperCase()+t.slice(1)}
+              </button>
+            ))}
+          </div>
+          {dt==="chart"&&<div className="card"><CostChart res={res}/></div>}
+          {dt==="alum"&&<div className="card"><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>Aluminium Sections</div>
+            <div className="tblwrap"><table><thead><tr><th className="th">Section</th><th className="thr">mm</th><th className="thr">Qty</th><th className="thr">Kg</th><th className="thr">Amount</th></tr></thead>
+            <tbody>{res.secs.map((s,i)=><tr key={i}><td className="td">{s.n}</td><td className="tdr">{fn(s.sz,0)}</td><td className="tdr">{s.q}</td><td className="tdr">{fn(s.kg,2)}</td><td className="tdr" style={{color:"#16a34a",fontWeight:600}}>{fm(s.amt)}</td></tr>)}</tbody></table></div>
+            <div style={{marginTop:8,padding:"7px 10px",background:"#f0f9f4",borderRadius:6,fontSize:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{color:"#6b7a99"}}>Net Weight</span><span>{fn(res.twt,2)} kg</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{color:"#6b7a99"}}>Wastage 10%</span><span>{fn(res.wst,2)} kg</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,color:"#16a34a"}}><span>Total Aluminium</span><span>{fm(res.alAmt)}</span></div>
+            </div>
+          </div>}
+          {dt==="glass"&&<div className="card"><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>Glass</div>
+            <div className="tblwrap"><table><thead><tr><th className="th">Type</th><th className="thr">W</th><th className="thr">H</th><th className="thr">Sqft</th><th className="thr">Qty</th><th className="thr">Amount</th></tr></thead>
+            <tbody>{res.glass.map((g,i)=><tr key={i}><td className="td">{g.n}</td><td className="tdr">{fn(g.sw,0)}</td><td className="tdr">{fn(g.sh,0)}</td><td className="tdr">{fn(g.sqe,2)}</td><td className="tdr">{g.q}</td><td className="tdr" style={{color:"#16a34a",fontWeight:600}}>{fm(g.amt)}</td></tr>)}</tbody></table></div>
+          </div>}
+          {dt==="hw"&&<div className="card"><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>Hardware</div>
+            <div className="tblwrap"><table><thead><tr><th className="th">Item</th><th className="thr">Qty</th><th className="thr">Rate</th><th className="thr">Amount</th></tr></thead>
+            <tbody>{res.hw.map((h,i)=><tr key={i}><td className="td">{h.n}{h.note&&<span style={{fontSize:9,color:"#d97706",marginLeft:4}}>{h.note}</span>}</td><td className="tdr">{fn(+h.q,2)} {h.u||""}</td><td className="tdr">₹{h.r}</td><td className="tdr" style={{color:"#16a34a",fontWeight:600}}>{fm((+h.q)*h.r)}</td></tr>)}</tbody></table></div>
+          </div>}
+          {dt==="rubber"&&<div className="card"><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>EPDM Rubber</div>
+            <table><thead><tr><th className="th">Item</th><th className="thr">Rft</th><th className="thr">Amount</th></tr></thead>
+            <tbody>{[["Shutter W",res.epW],["Track H+W",res.epT],["Shutter H",res.epH]].map(([l,v],i)=><tr key={i}><td className="td">{l}</td><td className="tdr">{fn(v,2)}</td><td className="tdr" style={{color:"#16a34a",fontWeight:600}}>{fm(v*10)}</td></tr>)}</tbody></table>
+          </div>}
+          {dt==="labour"&&<div className="card"><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>Labour & Transport</div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:13}}><span style={{color:"#6b7a99"}}>Labour ({res.type.tr} Track)</span><span style={{fontWeight:700,color:"#16a34a"}}>{fm(res.lbAmt)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"#6b7a99"}}>Transport</span><span style={{fontWeight:700}}>{fm(res.transport)}</span></div>
+          </div>}
+          <SeriesCompare sid={sid} W={W} H={H} typeId={type.id} rates={rates} lock={lock} cid={cid} onSelect={s=>{handleSeries(s);setRes(null);}}/>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── QUOTE TAB ────────────────────────────────────────────────────────────────
+function newRow(){return{id:uid(),location:"",seriesId:"29slim",typeId:"2T2S",W:"",H:"",qty:1,lock:"concealed",cid:"white",calc:null};}
+function QuoteTab({rates,co,logo,lic,rows,setRows}){
+  const [cName,setCName]=useState("");const [pName,setPName]=useState("");const [pRef,setPRef]=useState("");
+  const [detail,setDetail]=useState(null);
+  const [hist,setHist]=useState(loadHist);
+  const upd=(id,k,v)=>setRows(prev=>prev.map(r=>r.id===id?{...r,[k]:v,calc:null}:r));
+  const calcRow=(id)=>setRows(prev=>prev.map(r=>{if(r.id!==id)return r;const s=SERIES[r.seriesId],at=TYPES.filter(t=>s.types.includes(t.id)),ty=at.find(t=>t.id===r.typeId)||at[0];return{...r,calc:doCalc(r.W,r.H,ty,s,rates,r.lock,r.cid)};}));
+  const calcAll=()=>setRows(prev=>prev.map(r=>{const s=SERIES[r.seriesId],at=TYPES.filter(t=>s.types.includes(t.id)),ty=at.find(t=>t.id===r.typeId)||at[0];return{...r,calc:doCalc(r.W,r.H,ty,s,rates,r.lock,r.cid)};}));
+  const totals=useMemo(()=>{const v=rows.filter(r=>r.calc);return{GT:v.reduce((s,r)=>s+r.calc.unitTotal*(r.qty||1),0),GS:v.reduce((s,r)=>s+r.calc.tSq*(r.qty||1),0),GQ:v.reduce((s,r)=>s+(r.qty||1),0),cnt:v.length};},[rows]);
+  const dRow=detail?rows.find(r=>r.id===detail):null;
+  function saveQuote(){const entry={id:uid(),savedAt:new Date().toLocaleString("en-IN"),cName,pName,pRef,rows:[...rows],total:totals.GT,cnt:totals.cnt};const updated=[entry,...hist].slice(0,50);setHist(updated);saveHist(updated);alert("✅ Quotation saved!");}
+  function loadQuote(h){if(!confirm("Load? Current data will be replaced."))return;setCName(h.cName||"");setPName(h.pName||"");setPRef(h.pRef||"");setRows(h.rows&&h.rows.length?h.rows:[newRow()]);}
+  function delQuote(id){if(!confirm("Delete?"))return;const u=hist.filter(x=>x.id!==id);setHist(u);saveHist(u);}
+  const inp2={background:"#fff",border:"1px solid #dde2ee",borderRadius:6,color:"#1e2840",padding:"5px 7px",fontSize:11,boxSizing:"border-box",width:"100%"};
+
+  return (
+    <div>
+      <div className="card">
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8}}>🗂 History ({hist.length})</div>
+          <button onClick={saveQuote} style={{padding:"6px 14px",background:"#16a34a",color:"#fff",border:"none",borderRadius:7,fontWeight:700,fontSize:11,cursor:"pointer"}}>💾 Save Current</button>
+        </div>
+        {hist.length===0&&<div style={{fontSize:12,color:"#c5cde0",textAlign:"center",padding:"10px 0"}}>No saved quotations yet</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:200,overflowY:"auto"}}>
+          {hist.map((h,i)=>(
+            <div key={h.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:i%2===0?"#f8f9fc":"#fff",borderRadius:7,border:"1px solid #eef0f8"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#1e2840",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.cName||"Unnamed"}{h.pName?" – "+h.pName:""}</div>
+                <div style={{fontSize:10,color:"#6b7a99",marginTop:1}}>{h.savedAt} • {h.cnt} win • <span style={{color:"#16a34a",fontWeight:700}}>{fm(h.total)}</span></div>
+              </div>
+              <button onClick={()=>loadQuote(h)} style={{padding:"3px 10px",background:"#2563eb",color:"#fff",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:700}}>📂</button>
+              <button onClick={()=>delQuote(h.id)} style={{padding:"3px 8px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:5,cursor:"pointer",fontSize:11}}>🗑</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <div className="g3">
+          <div><label className="lbl">Customer Name</label><input value={cName} onChange={e=>setCName(e.target.value)} placeholder="Mr. Sharma"/></div>
+          <div><label className="lbl">Project / Site</label><input value={pName} onChange={e=>setPName(e.target.value)} placeholder="Sharma Residence"/></div>
+          <div><label className="lbl">Quote Ref No.</label><input value={pRef} onChange={e=>setPRef(e.target.value)} placeholder="AF-2026-001"/></div>
+        </div>
+      </div>
+      <div className="card">
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8}}>🪟 Windows List</div>
+          <div style={{display:"flex",gap:7}}>
+            <button onClick={calcAll} style={{padding:"6px 13px",background:"#2563eb",color:"#fff",border:"none",borderRadius:7,fontWeight:700,fontSize:11,cursor:"pointer"}}>⚡ Calculate All</button>
+            <button onClick={()=>setRows(p=>[...p,newRow()])} style={{padding:"6px 12px",background:"#fff",color:"#16a34a",border:"1px solid #16a34a",borderRadius:7,fontWeight:700,fontSize:11,cursor:"pointer"}}>+ Add</button>
+          </div>
+        </div>
+        <div className="tblwrap">
+          <table style={{minWidth:860}}>
+            <thead><tr style={{background:"#eff6ff"}}>
+              {["#","Location","Series","Type","W mm","H mm","Qty","Colour","Lock","Sqft","Unit ₹","Total ₹",""].map((h,i)=>(
+                <th key={i} className={["Sqft","Unit ₹","Total ₹","#","Qty"].includes(h)?"thr":"th"}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {rows.map((row,idx)=>{
+                const s=SERIES[row.seriesId];
+                const at=TYPES.filter(t=>s.types.includes(t.id));
+                const ty=at.find(t=>t.id===row.typeId)||at[0];
+                const col=COLORS.find(c=>c.id===row.cid)||COLORS[0];
+                const isC=!!row.calc;
+                const rt=isC?row.calc.unitTotal*(row.qty||1):null;
+                return (
+                  <tr key={row.id} style={{background:idx%2===0?"#f8f9fc":"#fff"}}>
+                    <td className="tdr" style={{color:"#6b7a99",fontWeight:700,width:24}}>{idx+1}</td>
+                    <td className="td"><input value={row.location} onChange={e=>upd(row.id,"location",e.target.value)} placeholder="Hall" style={{...inp2,width:75}}/></td>
+                    <td className="td">
+                      <select value={row.seriesId} onChange={e=>{upd(row.id,"seriesId",e.target.value);if(!SERIES[e.target.value].types.includes(row.typeId))upd(row.id,"typeId",SERIES[e.target.value].types[0]);}} style={{...inp2,width:88,borderColor:s.color+"88",color:s.color,fontWeight:700}}>
+                        {Object.values(SERIES).filter(sv=>hasSeries(lic,sv.id)).map(sv=><option key={sv.id} value={sv.id}>{sv.label}</option>)}
+                      </select>
+                    </td>
+                    <td className="td"><select value={row.typeId} onChange={e=>upd(row.id,"typeId",e.target.value)} style={{...inp2,width:85}}>{at.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></td>
+                    <td className="td"><input type="number" value={row.W} onChange={e=>upd(row.id,"W",e.target.value)} placeholder="2000" style={{...inp2,width:58,textAlign:"right"}}/></td>
+                    <td className="td"><input type="number" value={row.H} onChange={e=>upd(row.id,"H",e.target.value)} placeholder="1500" style={{...inp2,width:58,textAlign:"right"}}/></td>
+                    <td className="td"><input type="number" value={row.qty} min={1} onChange={e=>upd(row.id,"qty",+e.target.value)} style={{...inp2,width:44,textAlign:"center"}}/></td>
+                    <td className="td">
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <div style={{width:13,height:13,borderRadius:"50%",background:col.hex,border:"1px solid #dde2ee",flexShrink:0}}/>
+                        <select value={row.cid} onChange={e=>upd(row.id,"cid",e.target.value)} style={{...inp2,width:68,fontSize:10}}>{COLORS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select>
+                      </div>
+                    </td>
+                    <td className="td"><select value={row.lock} onChange={e=>upd(row.id,"lock",e.target.value)} style={{...inp2,width:78,fontSize:10}}><option value="concealed">Concealed</option><option value="mp">Multi-Pt</option></select></td>
+                    <td className="tdr" style={{color:isC?"#2563eb":"#c5cde0",fontWeight:600}}>{isC?fn(row.calc.tSq,1):"—"}</td>
+                    <td className="tdr" style={{fontWeight:600}}>{isC?fm(row.calc.unitTotal):"—"}</td>
+                    <td className="tdr" style={{color:isC?"#16a34a":"#c5cde0",fontWeight:700}}>{isC?fm(rt):"—"}</td>
+                    <td className="td">
+                      <div style={{display:"flex",gap:3}}>
+                        <button onClick={()=>calcRow(row.id)} style={{padding:"3px 7px",background:"#2563eb",color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:700}}>⚡</button>
+                        {isC&&<button onClick={()=>setDetail(row.id)} style={{padding:"3px 7px",background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:4,cursor:"pointer",fontSize:11}}>📋</button>}
+                        {rows.length>1&&<button onClick={()=>setRows(p=>p.filter(r=>r.id!==row.id))} style={{padding:"3px 7px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:4,cursor:"pointer",fontSize:11}}>🗑</button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <button onClick={()=>setRows(p=>[...p,newRow()])} style={{width:"100%",marginTop:8,padding:"8px",background:"transparent",color:"#16a34a",border:"1px dashed #86efac",borderRadius:7,fontWeight:600,fontSize:12,cursor:"pointer"}}>+ Add Another Window</button>
+      </div>
+
+      {totals.cnt>0&&<>
+        <div style={{background:"linear-gradient(135deg,#1d4ed8,#2563eb)",borderRadius:10,padding:14,marginBottom:12}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:10,alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              {[["Windows",totals.cnt],["Qty",totals.GQ],["Area",fn(totals.GS,1)+" sqft"]].map(([l,v])=>(
+                <div key={l} style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>{l}</div><div style={{fontSize:18,fontWeight:800,color:"#fff"}}>{v}</div></div>
+              ))}
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>GRAND TOTAL</div><div style={{fontSize:22,fontWeight:800,color:"#86efac"}}>{fm(totals.GT)}</div></div>
+            </div>
+            <div style={{display:"flex",gap:7}}>
+              <button onClick={()=>makeMultiPDF(rows,cName,pName,pRef,co)} style={{padding:"9px 14px",background:"#fff",color:"#1d4ed8",border:"none",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer"}}>📄 PDF</button>
+              <button onClick={()=>shareWA(multiMsg(rows,cName,pName,pRef,totals.GT,totals.GQ,totals.GS))} style={{padding:"9px 14px",background:"#25D366",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer"}}>💬 WhatsApp</button>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>📊 Summary</div>
+          <div className="tblwrap">
+            <table><thead><tr style={{background:"#eff6ff"}}>
+              {["#","Location","Series","Type","Size","Qty","Sqft","Unit ₹","Total ₹","Rate/sqft"].map((h,i)=>(
+                <th key={i} className={["Sqft","Unit ₹","Total ₹","Rate/sqft","#","Qty"].includes(h)?"thr":"th"}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {rows.map((row,idx)=>{if(!row.calc)return null;const r=row.calc,q=row.qty||1;return(
+                <tr key={row.id} style={{background:idx%2===0?"#f8f9fc":"#fff"}}>
+                  <td className="tdr" style={{color:"#6b7a99",fontWeight:700}}>{idx+1}</td>
+                  <td className="td" style={{fontWeight:700,color:"#1e2840"}}>{row.location||"Window "+(idx+1)}</td>
+                  <td className="td"><span style={{padding:"2px 7px",background:r.series.color+"18",border:"1px solid "+r.series.color+"44",borderRadius:8,fontSize:10,color:r.series.color,fontWeight:700}}>{r.series.label}</span></td>
+                  <td className="td" style={{fontSize:10,color:"#6b7a99"}}>{r.type.full}</td>
+                  <td className="tdr" style={{fontWeight:600}}>{r.w}×{r.h}</td>
+                  <td className="tdr">{q}</td>
+                  <td className="tdr">{fn(r.tSq*q,1)}</td>
+                  <td className="tdr">{fm(r.unitTotal)}</td>
+                  <td className="tdr" style={{color:"#16a34a",fontWeight:700}}>{fm(r.unitTotal*q)}</td>
+                  <td className="tdr" style={{color:"#6b7a99"}}>{fm(r.sqR)}</td>
+                </tr>
+              );})}
+              <tr style={{background:"#eff6ff",fontWeight:700}}>
+                <td colSpan={6} className="td" style={{color:"#1d4ed8",fontSize:13}}>GRAND TOTAL</td>
+                <td className="tdr" style={{color:"#1d4ed8"}}>{fn(totals.GS,1)}</td>
+                <td className="tdr"></td>
+                <td className="tdr" style={{color:"#16a34a",fontSize:14}}>{fm(totals.GT)}</td>
+                <td className="tdr" style={{color:"#6b7a99"}}>{fm(totals.GT/Math.max(totals.GS,1))}</td>
+              </tr>
+            </tbody></table>
+          </div>
+        </div>
+      </>}
+
+      {detail&&dRow&&dRow.calc&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setDetail(null)}>
+          <div style={{background:"#fff",borderRadius:14,padding:20,maxWidth:460,width:"100%",maxHeight:"85vh",overflowY:"auto",border:"1px solid #e4e8f0",boxShadow:"0 8px 32px rgba(0,0,0,.12)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div><div style={{fontSize:14,fontWeight:700,color:"#1e2840"}}>{dRow.location||"Window "+(rows.findIndex(r=>r.id===detail)+1)}</div>
+              <div style={{fontSize:11,color:"#6b7a99",marginTop:2}}>{dRow.calc.series.label} | {dRow.calc.type.full} | {dRow.calc.w}×{dRow.calc.h}mm</div></div>
+              <button onClick={()=>setDetail(null)} style={{background:"#f0f4ff",color:"#6b7a99",border:"1px solid #e4e8f0",borderRadius:6,padding:"5px 10px",cursor:"pointer"}}>✕</button>
+            </div>
+            {[["Aluminium",dRow.calc.alAmt],["Glass",dRow.calc.glAmt],["Hardware",dRow.calc.hwAmt],["EPDM Rubber",dRow.calc.epAmt],["Labour",dRow.calc.lbAmt],["Transport",dRow.calc.transport]].map((it,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:i%2===0?"#f8f9fc":"#fff",borderRadius:5,marginBottom:3}}>
+                <span style={{fontSize:12,color:"#1e2840"}}>{it[0]}</span><span style={{fontSize:13,fontWeight:600}}>{fm(it[1])}</span>
+              </div>
+            ))}
+            {dRow.calc.pcAmt>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"7px 10px",background:"#fffbeb",borderRadius:5,marginBottom:3}}>
+              <span style={{fontSize:12}}>Powder Coating</span><span style={{fontSize:13,fontWeight:600}}>{fm(dRow.calc.pcAmt)}</span>
+            </div>}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:"#eff6ff",borderRadius:8,marginTop:8,border:"1px solid #bfdbfe"}}>
+              <div><div style={{fontSize:13,fontWeight:700,color:"#1d4ed8"}}>UNIT TOTAL</div><div style={{fontSize:10,color:"#6b7a99",marginTop:2}}>{fn(dRow.calc.tSq,1)} sqft @ {fm(dRow.calc.sqR)}/sqft</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:800,color:"#16a34a"}}>{fm(dRow.calc.unitTotal)}</div>
+                {(dRow.qty||1)>1&&<div style={{fontSize:12,color:"#1d4ed8",marginTop:2}}>× {dRow.qty} = {fm(dRow.calc.unitTotal*(dRow.qty||1))}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── COMPANY TAB ─────────────────────────────────────────────────────────────
+function CompanyTab({co,setCo,logo,setLogo}){
+  const [loc,setLoc]=useState({...co});
+  const upd=(k,v)=>setLoc(p=>({...p,[k]:v}));
+  const saved=JSON.stringify(loc)===JSON.stringify(co);
+  return (
+    <div style={{maxWidth:800}}>
+      <div className="card">
+        <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:12,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>🏢 Company Profile</div>
+        <div style={{fontSize:12,color:"#6b7a99",marginBottom:12}}>These details appear on every PDF estimate and quotation.</div>
+        <label className="lbl" style={{marginTop:0}}>Company / Business Name *</label>
+        <input value={loc.name||""} onChange={e=>upd("name",e.target.value)} placeholder="e.g. Sharma Aluminium & Glass Works" style={{fontSize:14,fontWeight:600}}/>
+        <label className="lbl">Tagline / Specialty</label>
+        <input value={loc.tagline||""} onChange={e=>upd("tagline",e.target.value)} placeholder="Aluminium Window & Door Specialists"/>
+        <div className="g2s" style={{marginTop:4}}>
+          <div><label className="lbl">📞 Phone</label><input value={loc.phone||""} onChange={e=>upd("phone",e.target.value)} placeholder="+91 98765 43210"/></div>
+          <div><label className="lbl">✉ Email</label><input value={loc.email||""} onChange={e=>upd("email",e.target.value)} placeholder="info@yourcompany.com"/></div>
+          <div><label className="lbl">🌐 Website</label><input value={loc.website||""} onChange={e=>upd("website",e.target.value)} placeholder="www.yourcompany.com"/></div>
+          <div><label className="lbl">🧾 GST Number</label><input value={loc.gst||""} onChange={e=>upd("gst",e.target.value)} placeholder="24XXXXX1234X1ZX"/></div>
+        </div>
+        <label className="lbl">📍 Address</label>
+        <textarea value={loc.address||""} onChange={e=>upd("address",e.target.value)} placeholder="Shop 5, Ring Road, Surat - 395001" rows={2} style={{resize:"vertical"}}/>
+        {loc.name&&<div style={{marginTop:12,padding:12,background:"#eff6ff",borderRadius:8,border:"1px solid #bfdbfe"}}>
+          <div style={{fontSize:11,color:"#6b7a99",marginBottom:6}}>PDF Header Preview</div>
+          <div style={{fontSize:14,fontWeight:800,color:"#1d4ed8"}}>{(loc.name||"").toUpperCase()}</div>
+          {loc.tagline&&<div style={{fontSize:11,color:"#6b7a99",marginTop:2}}>{loc.tagline}</div>}
+          <div style={{fontSize:10,color:"#6b7a99",marginTop:3}}>{[loc.phone,loc.email,loc.website].filter(Boolean).join(" | ")}</div>
+          {loc.address&&<div style={{fontSize:10,color:"#6b7a99"}}>{loc.address}</div>}
+          {loc.gst&&<div style={{fontSize:10,color:"#6b7a99"}}>GST: {loc.gst}</div>}
+        </div>}
+        <div style={{marginTop:14,display:"flex",gap:10,alignItems:"center"}}>
+          <button onClick={()=>setCo({...loc})} style={{padding:"10px 24px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}}>✓ Save Profile</button>
+          {!saved&&<span style={{fontSize:12,color:"#d97706"}}>⚠ Unsaved changes</span>}
+          {saved&&co.name&&<span style={{fontSize:12,color:"#16a34a"}}>✓ Saved on this device</span>}
+        </div>
+      </div>
+      <div className="card">
+        <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10}}>💾 Storage</div>
+        <div style={{fontSize:12,color:"#6b7a99",marginBottom:10}}>All data saved automatically on this device ✅</div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{try{const d=JSON.parse(localStorage.getItem(SK)||"{}");const h=JSON.parse(localStorage.getItem(HK)||"[]");alert("Storage used: "+(JSON.stringify({...d}).length/1024).toFixed(1)+"KB\nCompany: "+(d.company?.name||"(empty)")+"\nSaved quotes: "+h.length);}catch(e){alert("Error: "+e);}}} style={{padding:"7px 14px",background:"#eff6ff",color:"#1d4ed8",border:"1px solid #bfdbfe",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:600}}>📊 Check</button>
+          <button onClick={()=>{if(confirm("Clear ALL saved data?")){try{localStorage.removeItem(SK);localStorage.removeItem(HK);}catch{}window.location.reload();}}} style={{padding:"7px 14px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:600}}>🗑 Clear All</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RATES TAB ────────────────────────────────────────────────────────────────
+function RatesTab({rates,setRates,lic}){
+  const [loc,setLoc]=useState({...rates});
+  const grps=[
+    {t:"Material",f:[{k:"al",l:"Aluminium (₹/kg)"},{k:"g5",l:"Glass 5mm (₹/sqft)"},{k:"net",l:"Net (₹/sqft)"},{k:"ep",l:"EPDM (₹/rft)"},{k:"wst",l:"Wastage %",pct:true}]},
+    {t:"Labour",f:[{k:"lb2",l:"Labour 2 Track"},{k:"lb3",l:"Labour 3 Track"},{k:"tr",l:"Transport"},{k:"pc",l:"Base Powder Coat"}]},
+    {t:"Hardware",f:[{k:"b2",l:"Bearing 2T"},{k:"b3",l:"Bearing 3T"},{k:"cl",l:"Lock 2T"},{k:"cl3",l:"Lock 3T"},{k:"si",l:"Silicon"},{k:"ad",l:"Anti Dust"},{k:"bs",l:"Bump Stopper"},{k:"st",l:"Sticker"},{k:"kp",l:"KPA Cover"},{k:"ic",l:"Interlock Cap"},{k:"sl",l:"Silicon Labour"}]},
+  ];
+  return (
+    <div>
+      <div style={{fontSize:16,fontWeight:700,color:"#1d4ed8",marginBottom:14}}>⚙️ Rate Configuration</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:12}}>
+        {grps.map(g=>(
+          <div key={g.t} className="card">
+            <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}>{g.t}</div>
+            {g.f.map(f=>(
+              <div key={f.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
+                <label style={{fontSize:11,color:"#6b7a99",flex:1}}>{f.l}</label>
+                <input type="number" value={f.pct?loc[f.k]*100:loc[f.k]} onChange={e=>setLoc(p=>({...p,[f.k]:f.pct?+e.target.value/100:+e.target.value}))} style={{width:72,textAlign:"right",padding:"4px 7px"}}/>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:14,display:"flex",gap:10}}>
+        <button onClick={()=>setRates({...loc})} style={{padding:"10px 22px",background:"#2563eb",color:"#fff",border:"none",borderRadius:8,fontWeight:700,cursor:"pointer"}}>✓ Save Rates</button>
+        <button onClick={()=>{setLoc({...DR});setRates({...DR});}} style={{padding:"10px 22px",background:"#fff",color:"#6b7a99",border:"1px solid #dde2ee",borderRadius:8,fontWeight:600,cursor:"pointer"}}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// LICENSE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+const LIC_SECRET = "ALUFABB2026";
+// ── SERIES DEFINITIONS ───────────────────────────────────────────────────────
+const ALL_SERIES_IDS = ["29","25","27","35","37"];
+
+// ── TIER DEFINITIONS ─────────────────────────────────────────────────────────
+const LIC_TIERS = {
+  "S": {name:"Starter", badge:"#2563eb", features:["calc","pdf","quote","compare","logo","rates"]},
+  "X": {name:"Premium", badge:"#d97706", features:["calc","pdf","quote","compare","logo","rates","visual"]},
+};
+
+// ── CHECKSUM ─────────────────────────────────────────────────────────────────
+function sha4(str){
+  let h=0;
+  for(let i=0;i<str.length;i++){h=((h<<5)-h)+str.charCodeAt(i);h=h&h;}
+  return Math.abs(h).toString(16).toUpperCase().padStart(8,"0").slice(0,4);
+}
+
+// ── VERIFY LICENSE ────────────────────────────────────────────────────────────
+// New format: TIER+EXPIRY-NAME4-SERIES-CHECK
+// e.g. X20270101-SHRM-2935-XXXX  (29mm+35mm, Premium)
+//      S20270101-PATE-A-XXXX     (all series, Starter)
+function verifyLicense(code){
+  try{
+    code=(code||"").trim().toUpperCase().replace(/\s/g,"");
+    const parts=code.split("-");
+    if(parts.length!==4)return{valid:false,reason:"Invalid format. Expected: XYYYYMMDD-NAME-SERIES-CHCK"};
+    const [part1,name4,seriesCode,check]=parts;
+    if(part1.length!==9)return{valid:false,reason:"Invalid code length"};
+    const tierKey=part1[0],expiry=part1.slice(1);
+    if(!LIC_TIERS[tierKey])return{valid:false,reason:"Invalid tier"};
+    // Verify checksum
+    const raw=tierKey+"|"+expiry+"|"+name4+"|"+seriesCode+"|"+LIC_SECRET;
+    if(sha4(raw)!==check)return{valid:false,reason:"Invalid license key — please check and re-enter"};
+    // Check expiry
+    const yr=+expiry.slice(0,4),mo=+expiry.slice(4,6)-1,dy=+expiry.slice(6,8);
+    const expDate=new Date(yr,mo,dy);
+    const today=new Date();today.setHours(0,0,0,0);
+    const daysLeft=Math.floor((expDate-today)/(1000*60*60*24));
+    if(daysLeft<0)return{valid:false,expired:true,
+      reason:"License expired on "+expiry.slice(6)+"/"+expiry.slice(4,6)+"/"+expiry.slice(0,4)};
+    // Decode allowed series
+    let allowedSeries;
+    if(seriesCode==="A"){
+      allowedSeries=ALL_SERIES_IDS.slice();
+    } else {
+      allowedSeries=[];
+      let s=seriesCode,i=0;
+      while(i<s.length){
+        const two=s.slice(i,i+2);
+        if(ALL_SERIES_IDS.includes(two)){allowedSeries.push(two);i+=2;}
+        else i++;
+      }
+      if(!allowedSeries.length)allowedSeries=ALL_SERIES_IDS.slice();
+    }
+    return{
+      valid:true, tierKey,
+      tierName:LIC_TIERS[tierKey].name,
+      badge:LIC_TIERS[tierKey].badge,
+      features:LIC_TIERS[tierKey].features,
+      series:allowedSeries, seriesCode,
+      expiry, daysLeft, name:name4
+    };
+  }catch(e){return{valid:false,reason:"Error: "+e.message};}
+}
+
+function hasFeature(lic,feat){return lic&&lic.valid&&(lic.features||[]).includes(feat);}
+function hasSeries(lic,sid){
+  if(!lic||!lic.valid)return false;
+  // Map full series id to short code
+  const map={"29slim":"29","25mm":"25","27mm":"27","35mm":"35","37mm":"37"};
+  const code=map[sid]||sid.slice(0,2);
+  return (lic.series||[]).includes(code);
+}
+
+// ── GENERATE LICENSE (run in browser console) ─────────────────────────────────
+// Usage: _genLic("Sharma Fab", "X", "20270101", ["29","35"])
+// Series: ["29"] or ["29","35"] or ["A"] for all
+function generateLicense(fabricatorName, tierKey, expiryYYYYMMDD, seriesList){
+  seriesList=seriesList||["A"];
+  const name4=(fabricatorName.toUpperCase().replace(/\s/g,"")+"XXXX").slice(0,4);
+  let seriesCode;
+  if(!seriesList||seriesList.includes("A")||seriesList.length>=5){
+    seriesCode="A";
+  } else {
+    seriesCode=seriesList.filter(s=>ALL_SERIES_IDS.includes(s))
+      .sort((a,b)=>ALL_SERIES_IDS.indexOf(a)-ALL_SERIES_IDS.indexOf(b)).join("");
+  }
+  const raw=tierKey+"|"+expiryYYYYMMDD+"|"+name4+"|"+seriesCode+"|"+LIC_SECRET;
+  const check=sha4(raw);
+  return tierKey+expiryYYYYMMDD+"-"+name4+"-"+seriesCode+"-"+check;
+}
+window._genLic=generateLicense;
+// Examples:
+// _genLic("Sharma Fab",  "S", "20270101", ["29","35"])      → Starter, 29+35mm only
+// _genLic("Patel Alum",  "X", "20270101", ["29","25","27"]) → Premium, 3 series
+// _genLic("Metro Win",   "X", "20270101", ["A"])            → Premium, all series
+
+// ═══════════════════════════════════════════════════════════════════════
+// LOGO UPLOAD HELPER
+// ═══════════════════════════════════════════════════════════════════════
+function LicenseScreen({onActivate}){
+  const [code,setCode]=useState(load("licCode",""));
+  const [err,setErr]=useState("");
+  const [checking,setChecking]=useState(false);
+
+  // Auto-check stored code on mount
+  useEffect(()=>{
+    const stored=load("licCode","");
+    if(stored){
+      const r=verifyLicense(stored);
+      if(r.valid){onActivate(r,stored);return;}
+    }
+  },[]);
+
+  const preview=code.length>15?verifyLicense(code):null;
+
+  function activate(){
+    setErr("");setChecking(true);
+    setTimeout(()=>{
+      const r=verifyLicense(code);
+      if(r.valid){save("licCode",code);onActivate(r,code);}
+      else setErr(r.reason);
+      setChecking(false);
+    },600);
+  }
+
+  return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f172a,#1e3a5f)",padding:16}},
+    React.createElement("div",{style:{width:"100%",maxWidth:440}},
+      // Logo + title
+      React.createElement("div",{style:{textAlign:"center",marginBottom:28}},
+        React.createElement("div",{style:{width:72,height:72,background:"linear-gradient(135deg,#2563eb,#1d4ed8)",borderRadius:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 14px",boxShadow:"0 8px 32px rgba(37,99,235,.4)"}},"🪟"),
+        React.createElement("div",{style:{fontSize:26,fontWeight:900,color:"#fff",letterSpacing:"-0.5px"}},"AlumCalc Pro"),
+        React.createElement("div",{style:{fontSize:12,color:"#64748b",marginTop:4}}),"Professional Aluminium Window Estimation Tool"
+      ),
+      // License card
+      React.createElement("div",{style:{background:"rgba(255,255,255,.05)",borderRadius:16,padding:28,border:"1px solid rgba(255,255,255,.1)",backdropFilter:"blur(10px)"}},
+        React.createElement("div",{style:{fontSize:14,fontWeight:700,color:"#e2e8f0",marginBottom:4}}),"Enter License Key",
+        React.createElement("div",{style:{fontSize:12,color:"#64748b",marginBottom:18}}),"Enter your license key to activate AlumCalc Pro",
+        React.createElement("input",{
+          value:code,
+          onChange:e=>setCode(e.target.value.toUpperCase()),
+          placeholder:"X20270101-NAME-XXXX",
+          onKeyDown:e=>e.key==="Enter"&&activate(),
+          style:{width:"100%",padding:"12px 14px",background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",borderRadius:10,color:"#fff",fontSize:16,letterSpacing:2,fontFamily:"monospace",marginBottom:err?8:16,boxSizing:"border-box"}
+        }),
+        err&&React.createElement("div",{style:{fontSize:12,color:"#f87171",marginBottom:12,padding:"8px 12px",background:"rgba(248,113,113,.1)",borderRadius:6,border:"1px solid rgba(248,113,113,.2)"}},"⚠ "+err),
+        preview&&preview.valid&&React.createElement("div",{style:{fontSize:12,color:"#4ade80",marginBottom:12,padding:"10px 12px",background:"rgba(74,222,128,.08)",borderRadius:6,border:"1px solid rgba(74,222,128,.2)"}},
+          React.createElement("div",{style:{fontWeight:700,marginBottom:4}},"✅ "+preview.tierName+" License — "+preview.daysLeft+" days remaining"),
+          React.createElement("div",{style:{color:"#86efac",fontSize:11}},"Series: "+( preview.series||[]).map(s=>s+"mm Slim").join(", ")),
+        ),
+        React.createElement("button",{
+          onClick:activate,disabled:!code||checking,
+          style:{width:"100%",padding:"13px",background:checking?"#374151":"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:15,cursor:code&&!checking?"pointer":"not-allowed",transition:".2s"}
+        },checking?"Verifying...":"Activate License →"),
+        // Tiers info
+        React.createElement("div",{style:{marginTop:20,display:"flex",flexDirection:"column",gap:7}},
+          React.createElement("div",{style:{fontSize:10,color:"#475569",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}),"Available Plans",
+          ...Object.entries(LIC_TIERS).map(([k,t])=>
+            React.createElement("div",{key:k,style:{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"rgba(255,255,255,.04)",borderRadius:8,border:"1px solid rgba(255,255,255,.06)"}},
+              React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:t.badge,flexShrink:0}}),
+              React.createElement("div",null,
+                React.createElement("span",{style:{fontSize:12,fontWeight:700,color:"#e2e8f0"}},t.name+" "),
+                React.createElement("span",{style:{fontSize:10,color:"#475569"}},
+                  t.name==="Starter"?"All series + PDF Quotation":"All Starter features + Visualiser"
+                )
+              )
+            )
+          )
+        )
+      ),
+      React.createElement("div",{style:{textAlign:"center",marginTop:14,fontSize:11,color:"#334155"}}),"Contact Alufabb Fenestration to get your license key"
+    )
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// BEFORE / AFTER SLIDER COMPONENT
+// ═══════════════════════════════════════════════════════════════════════
+function BeforeAfter({beforeCanvas,afterCanvas,width,height}){
+  const [pos,setPos]=useState(50);
+  const [dragging,setDragging]=useState(false);
+  const containerRef=useRef(null);
+  const canvasRef=useRef(null);
+
+  useEffect(()=>{
+    if(!beforeCanvas||!afterCanvas||!canvasRef.current)return;
+    const cv=canvasRef.current;
+    const ctx=cv.getContext("2d");
+    cv.width=width;cv.height=height;
+    const splitX=Math.round(width*pos/100);
+    // Draw before (left)
+    ctx.drawImage(beforeCanvas,0,0,width,height);
+    // Draw after (right portion)
+    ctx.save();ctx.beginPath();ctx.rect(splitX,0,width-splitX,height);ctx.clip();
+    ctx.drawImage(afterCanvas,0,0,width,height);
+    ctx.restore();
+    // Divider line
+    ctx.fillStyle="rgba(255,255,255,0.95)";ctx.fillRect(splitX-1.5,0,3,height);
+    // Divider handle circle
+    const cy=height/2;
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(splitX,cy,18,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#2563eb";ctx.beginPath();ctx.arc(splitX,cy,14,0,Math.PI*2);ctx.fill();
+    // Arrows in handle
+    ctx.fillStyle="#fff";ctx.font="bold 11px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText("◀ ▶",splitX,cy);
+    // Labels
+    ctx.fillStyle="rgba(0,0,0,0.6)";ctx.fillRect(8,8,60,22);
+    ctx.fillStyle="#fff";ctx.font="bold 11px sans-serif";ctx.textAlign="left";ctx.textBaseline="middle";
+    ctx.fillText("BEFORE",14,19);
+    ctx.fillStyle="rgba(37,99,235,0.85)";ctx.fillRect(splitX+8,8,55,22);
+    ctx.fillStyle="#fff";ctx.textAlign="left";ctx.fillText("AFTER",splitX+14,19);
+  },[beforeCanvas,afterCanvas,pos,width,height]);
+
+  function getXFromEvent(e){
+    const cv=canvasRef.current;if(!cv)return 50;
+    const r=cv.getBoundingClientRect();
+    const sc=cv.width/r.width;
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    return Math.max(5,Math.min(95,((cx-r.left)*sc/cv.width)*100));
+  }
+
+  return React.createElement("div",{ref:containerRef,style:{position:"relative",userSelect:"none",cursor:"col-resize",borderRadius:10,overflow:"hidden"}},
+    React.createElement("canvas",{
+      ref:canvasRef,
+      style:{display:"block",maxWidth:"100%",cursor:"col-resize"},
+      onMouseDown:e=>{setDragging(true);setPos(getXFromEvent(e));},
+      onMouseMove:e=>{if(dragging)setPos(getXFromEvent(e));},
+      onMouseUp:()=>setDragging(false),
+      onMouseLeave:()=>setDragging(false),
+      onTouchStart:e=>{e.preventDefault();setDragging(true);setPos(getXFromEvent(e));},
+      onTouchMove:e=>{e.preventDefault();if(dragging)setPos(getXFromEvent(e));},
+      onTouchEnd:()=>setDragging(false),
+    })
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUT OPTIMISER TAB
+// ═══════════════════════════════════════════════════════════════════════
+const SAW_KERF = 3; // mm lost per cut
+const OPTI_COLORS = ["#378ADD","#1D9E75","#D85A30","#D4537E","#BA7517","#634AB7","#0F6E56","#A32D2D","#856BBE","#2D8A6A"];
+
+function getCutList(W, H, sid, tid){
+  const s=SERIES[sid],t=TYPES.find(x=>x.id===tid);
+  if(!s||!t)return[];
+  const {tr,sh,co,net:hn,nc=1}=t;
+  const cuts=[];
+  const add=(sec,len,qty)=>cuts.push({sec,len:Math.round(len),qty});
+  add("Track W",W,2); add("Track H",H,2);
+  if(!co){
+    if(tr===2){const sw=(W-107)/2;add("Shutter bot",sw,4);add("Shutter H",H-85,sh);}
+    else{const sw=(W-106)/3;add("Shutter bot",sw,4);add("Shutter H",H-85,2);add("Centre shutter",sw-23,2);}
+  }else{
+    const sw=(W-136)/4;add("Shutter bot",sw,8);add("Shutter H",H-85,4);
+    if(tr===3)add("Centre shutter",sw-22,4);
+  }
+  if(s.hasCap)add("Track cap",W-101,tr);
+  const ilQ=co?(tr===2?2:4):(tr===2?1:2);
+  if(sid==="27mm"){add("Interlock",H-85,ilQ);}
+  else{if(s.hasKPA&&H>1800)add("Interlock KPA",H-85,ilQ);add("Interlock slim",H-85,ilQ);}
+  if(hn){add("Mesh H",H-85,nc);add("Mesh W",(W/sh)*nc,nc*2);add("Mesh IL",H-85,nc);}
+  return cuts;
+}
+
+function getGlassList(W, H, sid, tid){
+  const s=SERIES[sid],t=TYPES.find(x=>x.id===tid);
+  if(!s||!t)return[];
+  const {tr,sh,co,net:hn,nc=1}=t;
+  const glass=[];
+  const gsw=co?(W-136)/4-37:(tr===2?(W-107)/2:(W-106)/3)-37;
+  const gsh=H-85-103;
+  glass.push({type:"5mm Clear Glass",W:Math.round(gsw),H:Math.round(gsh),qty:co?4:2});
+  if(tr===3&&!co)glass.push({type:"5mm Clear (Centre)",W:Math.round((W-106)/3-23+27),H:Math.round(gsh),qty:1});
+  if(co&&tr===3)glass.push({type:"5mm Clear (Centre)",W:Math.round((W-136)/4-22+27),H:Math.round(gsh),qty:2});
+  if(hn)glass.push({type:"Mosquito Net SS304",W:Math.round((W/sh)*nc),H:Math.round(H),qty:nc});
+  return glass;
+}
+
+function packBars(pieces, barLen){
+  // Pack a single homogeneous list of pieces onto bars
+  const sorted=[...pieces].sort((a,b)=>b.mm-a.mm);
+  const bars=[];
+  sorted.forEach(p=>{
+    let placed=false;
+    for(const bar of bars){
+      const need=p.mm+(bar.cuts.length>0?SAW_KERF:0);
+      if(bar.remaining>=need){bar.remaining-=need;bar.cuts.push({...p});placed=true;break;}
+    }
+    if(!placed)bars.push({remaining:barLen-p.mm,cuts:[{...p}]});
+  });
+  return bars;
+}
+
+// Map each cut section to its profile group
+// Sections on the SAME bar must be the SAME extrusion profile
+function getSectionGroup(sec){
+  const s=sec.toLowerCase();
+  if(s.includes("track w")||s.includes("track h"))        return "Track Profile";
+  if(s.includes("shutter bot")||s.includes("shutter h"))  return "Shutter Profile";
+  if(s.includes("centre shut"))                           return "Centre Shutter Profile";
+  if(s.includes("track cap"))                             return "Track Cap";
+  if(s.includes("interlock kpa"))                         return "Interlock KPA";
+  if(s.includes("interlock slim")||s.includes("interlock")&&!s.includes("kpa")) return "Interlock Slim";
+  if(s.includes("mesh h")||s.includes("mesh w"))          return "Mesh Frame";
+  if(s.includes("mesh il"))                               return "Mesh Interlock";
+  return sec; // fallback
+}
+
+function packBySection(allPieces, barLen){
+  // Group pieces by their profile section
+  const groups={};
+  allPieces.forEach(p=>{
+    const grp=getSectionGroup(p.sec);
+    if(!groups[grp])groups[grp]=[];
+    groups[grp].push(p);
+  });
+  // Pack each group independently
+  const result={};
+  Object.entries(groups).forEach(([grp,pieces])=>{
+    result[grp]=packBars(pieces,barLen);
+  });
+  return result;
+}
+
+function OptiTab({rates,lic}){
+  const [wins,setWins]=useState([]);
+  const [W,setW]=useState("");const [H,setH]=useState("");const [qty,setQty]=useState(1);
+  const [sid,setSid]=useState(()=>{const f=Object.values(SERIES).find(s=>hasSeries(lic,s.id));return f?f.id:"29slim";});
+  const [tid,setTid]=useState("2T2S");
+  const [barLen,setBarLen]=useState(6000);
+  const [result,setResult]=useState(null);
+
+  const avSeries=Object.values(SERIES).filter(s=>hasSeries(lic,s.id));
+  const avTypes=TYPES.filter(t=>SERIES[sid]&&SERIES[sid].types.includes(t.id));
+  const type=avTypes.find(t=>t.id===tid)||avTypes[0];
+
+  function addWin(){
+    if(!W||!H||+W<200||+H<200){alert("Enter valid dimensions (min 200mm)");return;}
+    setWins(p=>[...p,{W:+W,H:+H,qty:+qty||1,sid,tid:type?type.id:tid,id:uid()}]);
+    setW("");setH("");setQty(1);
+  }
+
+  function optimise(){
+    if(!wins.length){alert("Add at least one window");return;}
+    const colorMap={};let ci=0;
+    let allPieces=[],allGlass=[];
+    wins.forEach(win=>{
+      const cuts=getCutList(win.W,win.H,win.sid,win.tid);
+      const glass=getGlassList(win.W,win.H,win.sid,win.tid);
+      cuts.forEach(cut=>{
+        if(!colorMap[cut.sec])colorMap[cut.sec]=OPTI_COLORS[ci++%OPTI_COLORS.length];
+        for(let q=0;q<cut.qty*win.qty;q++)
+          allPieces.push({label:cut.sec+" ("+win.W+"×"+win.H+")",sec:cut.sec,mm:cut.len,color:colorMap[cut.sec]});
+      });
+      glass.forEach(g=>{
+        const ex=allGlass.find(x=>x.type===g.type&&x.W===g.W&&x.H===g.H);
+        if(ex)ex.qty+=g.qty*win.qty;
+        else allGlass.push({...g,qty:g.qty*win.qty});
+      });
+    });
+    const sectionBars=packBySection(allPieces,barLen);
+    // Flatten for summary stats
+    const allBars=Object.values(sectionBars).flat();
+    const totalBars=allBars.length;
+    const totalMat=totalBars*barLen;
+    const totalUsed=allPieces.reduce((s,p)=>s+p.mm,0)+(allPieces.length-totalBars)*SAW_KERF;
+    const totalWaste=totalMat-totalUsed;
+    const eff=Math.round(totalUsed/totalMat*100);
+    const secGroups={};
+    allPieces.forEach(p=>{
+      if(!secGroups[p.sec])secGroups[p.sec]={color:p.color,count:0,totalMm:0};
+      secGroups[p.sec].count++;secGroups[p.sec].totalMm+=p.mm;
+    });
+    setResult({sectionBars,allPieces,allGlass,secGroups,totalMat,totalUsed,totalWaste,eff,barLen,totalBars});
+  }
+
+  const inp2={background:"#fff",border:"1px solid #dde2ee",borderRadius:6,color:"#1e2840",padding:"6px 8px",fontSize:12,boxSizing:"border-box",width:"100%"};
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"320px 1fr",gap:14,alignItems:"start"},className:"g2"},
+
+      // ── LEFT PANEL ───────────────────────────────────────────────────
+      React.createElement("div",null,
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}),"🪟 Add Windows",
+          React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Series",
+          React.createElement("select",{value:sid,onChange:e=>{setSid(e.target.value);setTid(SERIES[e.target.value].types[0]);},style:inp2},
+            avSeries.map(s=>React.createElement("option",{key:s.id,value:s.id},s.label))
+          ),
+          React.createElement("label",{className:"lbl"}),"Window Type",
+          React.createElement("select",{value:type?type.id:tid,onChange:e=>setTid(e.target.value),style:inp2},
+            avTypes.map(t=>React.createElement("option",{key:t.id,value:t.id},t.full))
+          ),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 60px",gap:8,marginTop:4}},
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Width mm",React.createElement("input",{type:"number",value:W,onChange:e=>setW(e.target.value),placeholder:"2000",style:inp2})),
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Height mm",React.createElement("input",{type:"number",value:H,onChange:e=>setH(e.target.value),placeholder:"1500",style:inp2})),
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Qty",React.createElement("input",{type:"number",value:qty,min:1,onChange:e=>setQty(+e.target.value),style:{...inp2,textAlign:"center"}}))
+          ),
+          React.createElement("button",{onClick:addWin,style:{width:"100%",marginTop:10,padding:"8px",background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer"}},
+            "+ Add Window"
+          )
+        ),
+
+        wins.length>0&&React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:8,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"📋 Windows ("+wins.length+")",
+          wins.map((w,i)=>React.createElement("div",{key:w.id,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #f0f2f8",fontSize:12}},
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("span",{style:{fontWeight:600}}),w.W+"×"+w.H+"mm ",
+              React.createElement("span",{style:{color:"#6b7a99",fontSize:11}},SERIES[w.sid].label+" · "+(TYPES.find(t=>t.id===w.tid)||{label:w.tid}).label+" · ×"+w.qty)
+            ),
+            React.createElement("button",{onClick:()=>setWins(p=>p.filter((_,j)=>j!==i)),style:{padding:"2px 8px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:5,cursor:"pointer",fontSize:11}},"✕")
+          ))
+        ),
+
+        React.createElement("div",{className:"card"},
+          React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Bar length",
+          React.createElement("select",{value:barLen,onChange:e=>setBarLen(+e.target.value),style:inp2},
+            [[5000,"5000mm (5 mtr)"],[5800,"5800mm"],[6000,"6000mm — standard"],[6096,"6096mm (20 ft)"],[6500,"6500mm"],[3658,"3658mm (12 ft)"],[4267,"4267mm (14 ft)"],[4572,"4572mm (15 ft)"],[4877,"4877mm (16 ft)"]].map(([v,l])=>React.createElement("option",{key:v,value:v},l))
+          ),
+          React.createElement("div",{style:{marginTop:8,padding:"7px 10px",background:"#f0f9f4",borderRadius:6,fontSize:11,color:"#6b7a99"}},
+            "✂ Saw kerf: "+SAW_KERF+"mm per cut deducted automatically"
+          ),
+          React.createElement("button",{onClick:optimise,style:{width:"100%",marginTop:10,padding:"11px",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}},
+            "⚡ Calculate Optimum Cuts"
+          )
+        )
+      ),
+
+      // ── RIGHT: RESULTS ─────────────────────────────────────────────────
+      React.createElement("div",null,
+        !result&&React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:400,background:"#fff",borderRadius:10,border:"1px solid #e4e8f0",color:"#c5cde0",textAlign:"center"}},
+          React.createElement("div",{style:{fontSize:40,marginBottom:10}}),"✂",
+          React.createElement("div",{style:{fontSize:14,color:"#a0abc0"}}),"Add windows and click Calculate",
+          React.createElement("div",{style:{fontSize:12,marginTop:6,color:"#c5cde0"}}),"Get optimum cut plan + glass list"
+        ),
+
+        result&&React.createElement("div",{className:"fi"},
+          // Stats
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}},
+            [
+              [result.totalBars,"Bars needed","#2563eb"],
+              [result.eff+"%","Efficiency","#16a34a"],
+              [(result.totalWaste/1000).toFixed(2)+"m","Total waste","#d97706"],
+              [result.allPieces.length,"Total pieces","#6b7a99"],
+            ].map(([v,l,c])=>React.createElement("div",{key:l,style:{background:"#fff",border:"1px solid #e4e8f0",borderRadius:10,padding:"10px 12px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}},
+              React.createElement("div",{style:{fontSize:20,fontWeight:800,color:c}}),v,
+              React.createElement("div",{style:{fontSize:10,color:"#6b7a99",marginTop:2}}),l
+            ))
+          ),
+
+          // Legend
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"✂ Cut Layout — "+result.barLen+"mm bars",
+            React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}},
+              Object.entries(result.secGroups).map(([sec,g])=>
+                React.createElement("div",{key:sec,style:{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:99,background:g.color+"15",border:"1px solid "+g.color+"33",fontSize:10}},
+                  React.createElement("div",{style:{width:7,height:7,borderRadius:"50%",background:g.color,flexShrink:0}}),
+                  React.createElement("span",{style:{color:"#6b7a99"}}),sec,
+                  React.createElement("span",{style:{color:"#9ba5bf"}}," ×"+g.count)
+                )
+              )
+            ),
+            // Bar visualization
+            result.bars.map((bar,bi)=>{
+              const segs=bar.cuts.map(c=>{
+                const w=(c.mm/result.barLen*100).toFixed(2);
+                return React.createElement("div",{key:bi+"_"+c.mm+"_"+Math.random(),
+                  title:c.label+": "+c.mm+"mm",
+                  style:{height:"100%",width:w+"%",background:c.color,borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}},
+                  w>4?React.createElement("span",{style:{fontSize:8,color:"#fff",whiteSpace:"nowrap",overflow:"hidden"}},c.mm):null
+                );
+              });
+              const wasteW=(bar.remaining/result.barLen*100).toFixed(2);
+              return React.createElement("div",{key:bi,style:{display:"flex",alignItems:"center",gap:8,marginBottom:3}},
+                React.createElement("div",{style:{fontSize:9,color:"#9ba5bf",width:52,flexShrink:0,textAlign:"right",lineHeight:1.3}},"Bar "+(bi+1)+"
+"+bar.cuts.length+" pcs"),
+                React.createElement("div",{style:{flex:1,height:16,background:"#f0f2f8",borderRadius:3,overflow:"hidden",display:"flex",gap:1,padding:2}},
+                  ...segs,
+                  React.createElement("div",{style:{height:"100%",width:wasteW+"%",background:"transparent",border:"0.5px dashed #c5cde0",borderRadius:2,flexShrink:0}})
+                ),
+                React.createElement("div",{style:{fontSize:9,color:"#9ba5bf",width:44,flexShrink:0}},bar.remaining+"mm")
+              );
+            })
+          ),
+
+          // Cut list table
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"📋 Order / Cut Sheet",
+            React.createElement("div",{className:"tblwrap"},
+              React.createElement("table",null,
+                React.createElement("thead",null,
+                  React.createElement("tr",{style:{background:"#eff6ff"}},
+                    ["Section","Length mm","Qty","Total m"].map((h,i)=>React.createElement("th",{key:h,className:i===0?"th":"thr"},h))
+                  )
+                ),
+                React.createElement("tbody",null,
+                  Object.entries(result.secGroups).map(([sec,g],i)=>
+                    React.createElement("tr",{key:sec,style:{background:i%2===0?"#f8f9fc":"#fff"}},
+                      React.createElement("td",{className:"td",style:{display:"flex",alignItems:"center",gap:7}},
+                        React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:g.color,flexShrink:0}}),sec
+                      ),
+                      React.createElement("td",{className:"tdr"},Math.round(g.totalMm/g.count)),
+                      React.createElement("td",{className:"tdr",style:{fontWeight:700}},g.count),
+                      React.createElement("td",{className:"tdr"},(g.totalMm/1000).toFixed(2))
+                    )
+                  ),
+                  React.createElement("tr",{style:{borderTop:"1px solid #e4e8f0",fontWeight:700}},
+                    React.createElement("td",{className:"td",style:{color:"#1d4ed8"}}),"Total aluminium",
+                    React.createElement("td",{className:"tdr"}),
+                    React.createElement("td",{className:"tdr"}),result.allPieces.length," pcs",
+                    React.createElement("td",{className:"tdr",style:{color:"#16a34a"}}),(result.allPieces.reduce((s,p)=>s+p.mm,0)/1000).toFixed(2)
+                  )
+                )
+              )
+            )
+          ),
+
+          // Glass list
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"🪟 Glass Cutting List",
+            result.allGlass.map((g,i)=>
+              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f0f2f8",fontSize:12}},
+                React.createElement("div",null,
+                  React.createElement("span",{style:{fontWeight:600}}),g.W+" × "+g.H+" mm ",
+                  React.createElement("span",{style:{color:"#6b7a99",fontSize:11}}),g.type
+                ),
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                  React.createElement("span",{style:{fontSize:11,color:"#6b7a99"}}),((g.W/304.8)*(g.H/304.8)).toFixed(2)+" sqft each",
+                  React.createElement("span",{style:{fontWeight:700}}),"× "+g.qty,
+                  React.createElement("span",{style:{padding:"2px 8px",borderRadius:99,background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600}}),((g.W/304.8)*(g.H/304.8)*g.qty).toFixed(2)+" sqft"
+                )
+              )
+            ),
+            React.createElement("div",{style:{marginTop:10,padding:"8px 10px",background:"#f0f9f4",borderRadius:7,display:"flex",justifyContent:"space-between",fontSize:12}},
+              React.createElement("span",{style:{color:"#6b7a99"}}),"Total glass area",
+              React.createElement("span",{style:{fontWeight:700,color:"#16a34a"}}),result.allGlass.reduce((s,g)=>s+((g.W/304.8)*(g.H/304.8)*g.qty),0).toFixed(2)+" sqft"
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// WIND LOAD TAB
+// ═══════════════════════════════════════════════════════════════════════
+const WIND_ZONES=[
+  {label:"Zone I",  Vb:33, cities:"Hyderabad, Bangalore, Chennai, Nagpur, Bhopal"},
+  {label:"Zone II", Vb:39, cities:"Delhi, Mumbai, Kolkata, Pune, Ahmedabad, Jaipur, Lucknow, Surat"},
+  {label:"Zone III",Vb:44, cities:"Bhubaneswar, Raipur, Patna, Ranchi, Guwahati"},
+  {label:"Zone IV", Vb:47, cities:"Coastal Andhra, Odisha coast, Vishakhapatnam"},
+  {label:"Zone V",  Vb:50, cities:"Cyclone zone — Coastal Tamil Nadu, parts of West Bengal"},
+  {label:"Zone VI", Vb:55, cities:"Extreme cyclone — Andaman & Nicobar, Lakshadweep"},
+];
+
+const WIND_SERIES=[
+  {id:"29slim",label:"29mm Slim",   color:"#2563eb",depth:29,wall:1.2,maxSpan:2000,cap:{1200:1200,1500:900, 1800:680, 2400:380},note:"Low-rise, up to 5 floors"},
+  {id:"25mm",  label:"25mm Prestige",color:"#7c3aed",depth:25,wall:1.0,maxSpan:1800,cap:{1200:980, 1500:720, 1800:540, 2400:305},note:"Economy slim, up to 3 floors"},
+  {id:"27mm",  label:"27mm",        color:"#059669",depth:27,wall:1.1,maxSpan:1900,cap:{1200:1050,1500:780, 1800:590, 2400:330},note:"Standard, up to 4 floors"},
+  {id:"35mm",  label:"35mm",        color:"#d97706",depth:35,wall:1.4,maxSpan:2500,cap:{1200:1800,1500:1320,1800:1050,2400:600},note:"Heavy duty, up to 10 floors"},
+  {id:"37mm",  label:"37mm",        color:"#dc2626",depth:37,wall:1.6,maxSpan:2800,cap:{1200:2200,1500:1600,1800:1280,2400:750},note:"Premium heavy, up to 15 floors"},
+];
+
+function windK2(h,tf){return Math.min(tf*Math.pow(Math.max(h,10)/10,0.14),1.45);}
+
+function windCapAtSpan(ser,spanMm){
+  const spans=Object.keys(ser.cap).map(Number).sort((a,b)=>a-b);
+  if(spanMm<=spans[0])return ser.cap[spans[0]];
+  if(spanMm>=spans[spans.length-1])return ser.cap[spans[spans.length-1]];
+  for(let i=0;i<spans.length-1;i++){
+    if(spanMm>=spans[i]&&spanMm<=spans[i+1]){
+      const t=(spanMm-spans[i])/(spans[i+1]-spans[i]);
+      return Math.round(ser.cap[spans[i]]+(ser.cap[spans[i+1]]-ser.cap[spans[i]])*t);
+    }
+  }
+  return ser.cap[spans[spans.length-1]];
+}
+
+function WindTab({lic}){
+  const [W,setW]=useState(1800);
+  const [H,setH]=useState(1500);
+  const [floor,setFloor]=useState(20);
+  const [terrain,setTerrain]=useState(0.75);
+  const [zone,setZone]=useState(1);
+
+  const avSeries=WIND_SERIES.filter(s=>hasSeries(lic,s.id));
+
+  const k2=windK2(floor,terrain);
+  const z=WIND_ZONES[zone];
+  const Vz=z.Vb*k2;
+  const Pz=Math.round(0.6*Vz*Vz);
+  const Pd=Math.round(Pz*1.5);
+  const pdKpa=(Pd/1000).toFixed(3);
+
+  const pdColor=Pd>1500?"#dc2626":Pd>900?"#d97706":"#2563eb";
+
+  const inp2={background:"#fff",border:"1px solid #dde2ee",borderRadius:6,color:"#1e2840",padding:"7px 9px",fontSize:12,width:"100%"};
+
+  return React.createElement("div",null,
+    // ── TOP GRID ─────────────────────────────────────────────────────────
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"340px 1fr",gap:14,alignItems:"start"},className:"g2"},
+
+      // LEFT — inputs
+      React.createElement("div",null,
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}),"🏗 Window & Site",
+
+          React.createElement("div",{className:"g2s"},
+            React.createElement("div",null,
+              React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Width (mm)",
+              React.createElement("input",{type:"number",value:W,min:300,max:4000,onChange:e=>setW(+e.target.value),style:inp2})
+            ),
+            React.createElement("div",null,
+              React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Height (mm)",
+              React.createElement("input",{type:"number",value:H,min:300,max:3000,onChange:e=>setH(+e.target.value),style:inp2})
+            )
+          ),
+
+          React.createElement("label",{className:"lbl"}),"Floor / Height above ground",
+          React.createElement("select",{value:floor,onChange:e=>setFloor(+e.target.value),style:inp2},
+            [[5,"Ground – 1st floor (up to 10m)"],[10,"2nd – 3rd floor (10–15m)"],[20,"4th – 6th floor (15–30m)"],[50,"7th – 12th floor (30–50m)"],[100,"Above 12th floor (50m+)"]].map(([v,l])=>
+              React.createElement("option",{key:v,value:v},l)
+            )
+          ),
+
+          React.createElement("label",{className:"lbl"}),"Terrain Category (IS 875)",
+          React.createElement("select",{value:terrain,onChange:e=>setTerrain(+e.target.value),style:inp2},
+            [[1.00,"Category 1 — Open sea / coastal"],[0.88,"Category 2 — Open terrain (rural)"],[0.75,"Category 3 — Urban / suburbs"],[0.62,"Category 4 — Dense urban / city centre"]].map(([v,l])=>
+              React.createElement("option",{key:v,value:v},l)
+            )
+          ),
+
+          React.createElement("label",{className:"lbl"}),"Wind Zone — IS 875 Part 3",
+          React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginTop:6}},
+            WIND_ZONES.map((z2,i)=>React.createElement("button",{key:i,onClick:()=>setZone(i),title:z2.cities,
+              style:{padding:"4px 10px",borderRadius:99,border:"1px solid",fontSize:11,cursor:"pointer",fontWeight:600,
+                background:zone===i?z2.Vb>47?"#fef2f2":z2.Vb>39?"#fffbeb":"#eff6ff":"transparent",
+                borderColor:zone===i?z2.Vb>47?"#fca5a5":z2.Vb>39?"#fde68a":"#bfdbfe":"#e4e8f0",
+                color:zone===i?z2.Vb>47?"#dc2626":z2.Vb>39?"#d97706":"#2563eb":"#6b7a99"
+              }},z2.label+" ("+z2.Vb+"m/s)"))
+          ),
+          React.createElement("div",{style:{marginTop:8,fontSize:11,color:"#6b7a99",padding:"5px 8px",background:"#f8f9fb",borderRadius:6}}),z.cities
+        ),
+
+        // ── DESIGN PRESSURE CARD ─────────────────────────────────────────
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}),"💨 Calculated Wind Pressure",
+          [
+            ["Basic wind speed Vb",z.Vb+" m/s",false],
+            ["Height factor k2",k2.toFixed(3),false],
+            ["Design wind speed Vz",Vz.toFixed(1)+" m/s",false],
+            ["Basic pressure Pz = 0.6×Vz²",Pz+" Pa  /  "+(Pz/1000).toFixed(3)+" kPa",false],
+          ].map(([l,v,hi])=>React.createElement("div",{key:l,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f0f2f8",fontSize:12}},
+            React.createElement("span",{style:{color:"#6b7a99"}}),l,
+            React.createElement("span",{style:{fontWeight:600}}),v
+          )),
+          React.createElement("div",{style:{marginTop:10,padding:"12px 14px",background:"#f8f9fb",borderRadius:8,border:"1px solid #e4e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:11,color:"#6b7a99",marginBottom:2}}),"DESIGN PRESSURE Pd = Pz × 1.5",
+              React.createElement("div",{style:{fontSize:10,color:"#6b7a99"}}),"Combined Cpe + Cpi for sliding windows"
+            ),
+            React.createElement("div",{style:{textAlign:"right"}},
+              React.createElement("div",{style:{fontSize:24,fontWeight:800,color:pdColor}}),Pd+" Pa",
+              React.createElement("div",{style:{fontSize:16,fontWeight:700,color:pdColor}}),pdKpa+" kPa"
+            )
+          ),
+          React.createElement("div",{style:{marginTop:8,fontSize:11,color:"#6b7a99",lineHeight:1.5}}),
+          "Window: "+W+"×"+H+"mm  ·  Critical span: "+H+"mm height"
+        )
+      ),
+
+      // RIGHT — series result cards + table
+      React.createElement("div",null,
+        // Series capacity cards
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:14}},
+          avSeries.map(ser=>{
+            const cap=windCapAtSpan(ser,H);
+            const ratio=Pd/cap;
+            const ok=ratio<=1.0;
+            const marginal=ratio>0.85&&ratio<=1.0;
+            const pct=Math.min(100,Math.round(ratio*100));
+            const fillColor=ok?(marginal?"#d97706":"#16a34a"):"#dc2626";
+            const borderColor=ok?(marginal?"#fde68a":"#86efac"):"#fca5a5";
+            const bgColor=ok?(marginal?"#fffbeb":"#f0fdf4"):"#fef2f2";
+            const badgeBg=ok?(marginal?"#fffbeb":"#f0fdf4"):"#fef2f2";
+            const badgeColor=ok?(marginal?"#92400e":"#166534"):"#991b1b";
+            const badgeText=ok?(marginal?"⚠ Marginal":"✓ Safe"):"✗ Exceeds";
+            return React.createElement("div",{key:ser.id,style:{background:"#fff",border:"1.5px solid "+borderColor,borderRadius:10,padding:"12px 10px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}},
+              React.createElement("div",{style:{fontSize:13,fontWeight:700,color:ser.color,marginBottom:6}}),ser.label,
+              React.createElement("div",{style:{display:"inline-block",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,background:badgeBg,color:badgeColor,marginBottom:8}}),badgeText,
+              // Gauge
+              React.createElement("div",{style:{height:6,background:"#f0f2f8",borderRadius:3,overflow:"hidden",marginBottom:8}},
+                React.createElement("div",{style:{height:"100%",width:pct+"%",background:fillColor,borderRadius:3,transition:"width .4s"}})
+              ),
+              React.createElement("div",{style:{fontSize:11,color:"#6b7a99",lineHeight:1.6}},
+                React.createElement("div",null,
+                  React.createElement("span",{style:{fontWeight:700,color:"#1e2840"}}),cap+" Pa",
+                  React.createElement("br",null),
+                  React.createElement("span",{style:{fontWeight:700,color:"#6b7a99",fontSize:10}}),(cap/1000).toFixed(3)+" kPa"
+                ),
+                React.createElement("div",{style:{color:"#9ba5bf",marginTop:2}}),"Usage: "+Math.round(ratio*100)+"%"
+              )
+            );
+          })
+        ),
+
+        // Reference table
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}),"📋 Capacity Reference Table",
+          React.createElement("div",{className:"tblwrap"},
+            React.createElement("table",null,
+              React.createElement("thead",null,
+                React.createElement("tr",{style:{background:"#eff6ff"}},
+                  ["Series","Depth","1.2m span","1.5m span","1.8m span","2.4m span","Max span","Suitable for"].map((h,i)=>
+                    React.createElement("th",{key:h,className:i>1&&i<7?"thr":"th",style:{whiteSpace:"nowrap"}},h)
+                  )
+                )
+              ),
+              React.createElement("tbody",null,
+                avSeries.map((ser,i)=>{
+                  const spans=[1200,1500,1800,2400];
+                  const curCap=windCapAtSpan(ser,H);
+                  const isCur=cap=>Math.abs(cap-curCap)<50;
+                  return React.createElement("tr",{key:ser.id,style:{background:i%2===0?"#f8f9fc":"#fff"}},
+                    React.createElement("td",{className:"td"},
+                      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                        React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:ser.color,flexShrink:0}}),
+                        React.createElement("span",{style:{fontWeight:600}}),ser.label
+                      )
+                    ),
+                    React.createElement("td",{className:"td",style:{color:"#6b7a99",fontSize:11}}),ser.depth+"mm/"+ser.wall+"mm",
+                    ...spans.map(sp=>{
+                      const v=ser.cap[sp];
+                      const isActive=Math.abs(sp-H)<200;
+                      return React.createElement("td",{key:sp,className:"tdr",style:{background:isActive?"#eff6ff":"transparent"}},
+                        React.createElement("div",{style:{fontWeight:isActive?700:400,color:isActive?ser.color:"#1e2840",fontSize:12}}),v+" Pa",
+                        React.createElement("div",{style:{fontSize:10,color:"#6b7a99"}}),(v/1000).toFixed(3)+" kPa"
+                      );
+                    }),
+                    React.createElement("td",{className:"tdr",style:{color:"#6b7a99"}}),ser.maxSpan+" mm",
+                    React.createElement("td",{className:"td",style:{fontSize:11,color:"#6b7a99"}}),ser.note
+                  );
+                })
+              )
+            )
+          ),
+          React.createElement("div",{style:{marginTop:10,fontSize:11,color:"#6b7a99",lineHeight:1.5,padding:"7px 10px",background:"#f8f9fb",borderRadius:6}}),
+          "⚠ Values per IS 875 Part 3. 1 kPa = 1000 Pa. Actual capacity depends on glass thickness, fixing details & site conditions. Structural engineer sign-off required for high-rise & cyclone zones."
+        )
+      )
+    )
+  );
+}
+
+
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+function App(){
+  const [user,setUser]=useSaved("user",null);
+  const [lic,setLic]=useState(null);
+  const [tab,setTab]=useState("calc");
+  const [co,setCo]=useSaved("company",{name:"",tagline:"",phone:"",email:"",address:"",gst:"",website:""});
+  const [logo,setLogo]=useSaved("logo","");
+  const [rates,setRates]=useSaved("rates",{...DR});
+  const [quoteRows,setQuoteRows]=useSaved("qrows",[newRow(),newRow()]);
+
+  function onActivate(licResult,code){
+    setLic(licResult);
+    if(!user)setUser(code.slice(0,8));
+  }
+
+  function addToQuote(sid,tid,loc2){
+    const nr={...newRow(),id:uid(),seriesId:sid,typeId:tid,location:loc2||""};
+    setQuoteRows(prev=>[...prev,nr]);
+    setTab("quote");
+  }
+
+  // Show license screen if not activated
+  if(!lic){
+    const stored=load("licCode","");
+    if(stored){
+      const r=verifyLicense(stored);
+      if(r.valid&&!lic){setLic(r);setUser(stored.slice(0,8));}
+    }
+    if(!lic)return React.createElement(LicenseScreen,{onActivate});
+  }
+
+  return (
+    <div style={{minHeight:"100vh"}}>
+      <div style={{background:"linear-gradient(135deg,#1d4ed8,#2563eb)",padding:"0 14px",boxShadow:"0 2px 12px rgba(37,99,235,.3)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,paddingTop:8,paddingBottom:4}}>
+          <div style={{width:32,height:32,background:"rgba(255,255,255,.2)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🪟</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>AlumCalc Pro</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,.6)"}}>Alufabb Fenestration</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:9,padding:"1px 7px",borderRadius:10,background:lic?lic.badge:"#374151",color:"#fff",fontWeight:700}}>{lic?lic.tierName:"?"}</span>
+                <span style={{fontSize:9,color:"rgba(255,255,255,.6)"}}>{lic&&lic.name}</span>
+              </div>
+              {lic&&lic.series&&<span style={{fontSize:9,color:"rgba(255,255,255,.5)"}}>{lic.series.map(s=>s+"mm").join(" · ")}</span>}
+            </div>
+            {lic&&lic.daysLeft<=30&&React.createElement("div",{style:{fontSize:9,color:"#fbbf24"}},lic.daysLeft+" days left")}
+          </div>
+          <button onClick={()=>{if(confirm("Deactivate license on this device?")){save("licCode","");setLic(null);setUser(null);}}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid rgba(255,255,255,.3)",cursor:"pointer",fontSize:10,background:"transparent",color:"rgba(255,255,255,.8)"}}>🔑</button>
+        </div>
+        <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",paddingBottom:0}}>
+          {[["calc","📐 Calculator"],["quote","📋 Quotation"],["opti","✂ Optimiser"],["wind","💨 Wind Load"],["company","🏢 Company"],["rates","⚙️ Rates"]].map(([t,l])=>(
+            <button key={t} className={"ntab"+(tab===t?" on":"")} onClick={()=>setTab(t)}>{l}</button>
+          ))}
+          {hasFeature(lic,"visual")&&React.createElement("a",{href:"/visualiser.html",style:{padding:"9px 13px",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:"rgba(255,255,255,.7)",background:"transparent",textDecoration:"none",whiteSpace:"nowrap",borderBottom:"3px solid transparent"}},"🪟 Visualiser")}
+        </div>
+      </div>
+      <div style={{maxWidth:1200,margin:"0 auto",padding:"12px 10px"}}>
+        {tab==="calc"&&React.createElement(CalcTab,{rates,addToQuote,co,logo,lic})}
+        {tab==="quote"&&React.createElement(QuoteTab,{rates,co,logo,lic,rows:quoteRows,setRows:setQuoteRows})}
+        {tab==="opti"&&React.createElement(OptiTab,{rates,lic})}
+        {tab==="wind"&&React.createElement(WindTab,{lic})}
+        {tab==="company"&&React.createElement(CompanyTab,{co,setCo,logo,setLogo})}
+        {tab==="rates"&&React.createElement(RatesTab,{rates,setRates,lic})}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
