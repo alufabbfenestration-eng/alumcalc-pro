@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#1d4ed8"/>
+<title>Cut Optimiser – AlumCalc Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f4f6fb;color:#1e2840;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+input,select{font-family:inherit;outline:none;background:#fff;border:1px solid #dde2ee;border-radius:6px;color:#1e2840;padding:7px 10px;font-size:12px;width:100%}
+input:focus,select:focus{border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
+table{border-collapse:collapse;width:100%}
+.card{background:#fff;border:1px solid #e4e8f0;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.lbl{font-size:11px;color:#6b7a99;font-weight:600;display:block;margin-bottom:3px;margin-top:8px}
+.th{padding:7px 8px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border-bottom:1px solid #dde8ff;text-align:left;white-space:nowrap}
+.thr{padding:7px 8px;font-size:11px;font-weight:700;color:#2563eb;background:#eff6ff;border-bottom:1px solid #dde8ff;text-align:right;white-space:nowrap}
+.td{padding:6px 8px;font-size:12px;border-bottom:1px solid #f0f2f8}
+.tdr{padding:6px 8px;font-size:12px;border-bottom:1px solid #f0f2f8;text-align:right}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.g2{display:grid;grid-template-columns:320px 1fr;gap:14px}
+.g2s{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:700px){.g2{grid-template-columns:1fr}.g2s{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;color:#6b7a99"><div style="font-size:32px">⏳</div><div style="font-size:14px">Loading...</div></div></div>
+
+<script type="text/babel">
+const {useState,useEffect}=React;
+
+  // ── LICENSE CHECK ──────────────────────────────────────────────────────────
+  const SK="acp_v2";
+  function loadLic(){
+    try{
+      const d=JSON.parse(localStorage.getItem(SK)||"{}");
+      const code=(d.licCode||"").trim().toUpperCase();
+      if(!code)return null;
+      const parts=code.split("-");
+      if(parts.length!==4)return null;
+      const tier=parts[0][0],expiry=parts[0].slice(1);
+      const yr=+expiry.slice(0,4),mo=+expiry.slice(4,6)-1,dy=+expiry.slice(6,8);
+      if(new Date(yr,mo,dy)<new Date())return null;
+      const serCode=parts[2];
+      const ALL_S=["29","25","27","35","37"];
+      let series=serCode==="A"?ALL_S.slice():[];
+      if(serCode!=="A"){let i=0;while(i<serCode.length){const t=serCode.slice(i,i+2);if(ALL_S.includes(t)){series.push(t);i+=2;}else i++;}}
+      return{tier,series};
+    }catch{return null;}
+  }
+  function hasSeries(lic,sid){
+    if(!lic)return true;
+    const map={"29slim":"29","25mm":"25","27mm":"27","35mm":"35","37mm":"37"};
+    return(lic.series||[]).includes(map[sid]||sid.slice(0,2));
+  }
+  const uid=()=>Math.random().toString(36).slice(2,9);
+
+  // ── SHARED HEADER ─────────────────────────────────────────────────────────
+  function Header(){
+    return React.createElement("div",{style:{background:"linear-gradient(135deg,#1d4ed8,#2563eb)",padding:"8px 14px",boxShadow:"0 2px 12px rgba(37,99,235,.3)",display:"flex",alignItems:"center",gap:10,marginBottom:0}},
+      React.createElement("div",{style:{width:32,height:32,background:"rgba(255,255,255,.2)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}},'✂'),
+      React.createElement("div",{style:{flex:1}},
+        React.createElement("div",{style:{fontSize:14,fontWeight:800,color:"#fff"}},'✂ Cut Optimiser'),
+        React.createElement("div",{style:{fontSize:9,color:"rgba(255,255,255,.6)"}}, "AlumCalc Pro — Alufabb Fenestration")
+      ),
+      React.createElement("a",{href:"/",style:{padding:"5px 12px",borderRadius:6,border:"1px solid rgba(255,255,255,.3)",fontSize:11,fontWeight:600,color:"rgba(255,255,255,.9)",background:"transparent",textDecoration:"none"}},'← Back to App')
+    );
+  }
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUT OPTIMISER TAB
+// ═══════════════════════════════════════════════════════════════════════
+const SAW_KERF = 3; // mm lost per cut
+const OPTI_COLORS = ["#378ADD","#1D9E75","#D85A30","#D4537E","#BA7517","#634AB7","#0F6E56","#A32D2D","#856BBE","#2D8A6A"];
+
+function getCutList(W, H, sid, tid){
+  const s=SERIES[sid],t=TYPES.find(x=>x.id===tid);
+  if(!s||!t)return[];
+  const {tr,sh,co,net:hn,nc=1}=t;
+  const cuts=[];
+  const add=(sec,len,qty)=>cuts.push({sec,len:Math.round(len),qty});
+  add("Track W",W,2); add("Track H",H,2);
+  if(!co){
+    if(tr===2){const sw=(W-107)/2;add("Shutter bot",sw,4);add("Shutter H",H-85,sh);}
+    else{const sw=(W-106)/3;add("Shutter bot",sw,4);add("Shutter H",H-85,2);add("Centre shutter",sw-23,2);}
+  }else{
+    const sw=(W-136)/4;add("Shutter bot",sw,8);add("Shutter H",H-85,4);
+    if(tr===3)add("Centre shutter",sw-22,4);
+  }
+  if(s.hasCap)add("Track cap",W-101,tr);
+  const ilQ=co?(tr===2?2:4):(tr===2?1:2);
+  if(sid==="27mm"){add("Interlock",H-85,ilQ);}
+  else{if(s.hasKPA&&H>1800)add("Interlock KPA",H-85,ilQ);add("Interlock slim",H-85,ilQ);}
+  if(hn){add("Mesh H",H-85,nc);add("Mesh W",(W/sh)*nc,nc*2);add("Mesh IL",H-85,nc);}
+  return cuts;
+}
+
+function getGlassList(W, H, sid, tid){
+  const s=SERIES[sid],t=TYPES.find(x=>x.id===tid);
+  if(!s||!t)return[];
+  const {tr,sh,co,net:hn,nc=1}=t;
+  const glass=[];
+  const gsw=co?(W-136)/4-37:(tr===2?(W-107)/2:(W-106)/3)-37;
+  const gsh=H-85-103;
+  glass.push({type:"5mm Clear Glass",W:Math.round(gsw),H:Math.round(gsh),qty:co?4:2});
+  if(tr===3&&!co)glass.push({type:"5mm Clear (Centre)",W:Math.round((W-106)/3-23+27),H:Math.round(gsh),qty:1});
+  if(co&&tr===3)glass.push({type:"5mm Clear (Centre)",W:Math.round((W-136)/4-22+27),H:Math.round(gsh),qty:2});
+  if(hn)glass.push({type:"Mosquito Net SS304",W:Math.round((W/sh)*nc),H:Math.round(H),qty:nc});
+  return glass;
+}
+
+function packBars(pieces, barLen){
+  // Pack a single homogeneous list of pieces onto bars
+  const sorted=[...pieces].sort((a,b)=>b.mm-a.mm);
+  const bars=[];
+  sorted.forEach(p=>{
+    let placed=false;
+    for(const bar of bars){
+      const need=p.mm+(bar.cuts.length>0?SAW_KERF:0);
+      if(bar.remaining>=need){bar.remaining-=need;bar.cuts.push({...p});placed=true;break;}
+    }
+    if(!placed)bars.push({remaining:barLen-p.mm,cuts:[{...p}]});
+  });
+  return bars;
+}
+
+// Map each cut section to its profile group
+// Sections on the SAME bar must be the SAME extrusion profile
+function getSectionGroup(sec){
+  const s=sec.toLowerCase();
+  if(s.includes("track w")||s.includes("track h"))        return "Track Profile";
+  if(s.includes("shutter bot")||s.includes("shutter h"))  return "Shutter Profile";
+  if(s.includes("centre shut"))                           return "Centre Shutter Profile";
+  if(s.includes("track cap"))                             return "Track Cap";
+  if(s.includes("interlock kpa"))                         return "Interlock KPA";
+  if(s.includes("interlock slim")||s.includes("interlock")&&!s.includes("kpa")) return "Interlock Slim";
+  if(s.includes("mesh h")||s.includes("mesh w"))          return "Mesh Frame";
+  if(s.includes("mesh il"))                               return "Mesh Interlock";
+  return sec; // fallback
+}
+
+function packBySection(allPieces, barLen){
+  // Group pieces by their profile section
+  const groups={};
+  allPieces.forEach(p=>{
+    const grp=getSectionGroup(p.sec);
+    if(!groups[grp])groups[grp]=[];
+    groups[grp].push(p);
+  });
+  // Pack each group independently
+  const result={};
+  Object.entries(groups).forEach(([grp,pieces])=>{
+    result[grp]=packBars(pieces,barLen);
+  });
+  return result;
+}
+
+function OptiTab({rates,lic}){
+  const [wins,setWins]=useState([]);
+  const [W,setW]=useState("");const [H,setH]=useState("");const [qty,setQty]=useState(1);
+  const [sid,setSid]=useState(()=>{const f=Object.values(SERIES).find(s=>hasSeries(lic,s.id));return f?f.id:"29slim";});
+  const [tid,setTid]=useState("2T2S");
+  const [barLen,setBarLen]=useState(6000);
+  const [result,setResult]=useState(null);
+
+  const avSeries=Object.values(SERIES).filter(s=>hasSeries(lic,s.id));
+  const avTypes=TYPES.filter(t=>SERIES[sid]&&SERIES[sid].types.includes(t.id));
+  const type=avTypes.find(t=>t.id===tid)||avTypes[0];
+
+  function addWin(){
+    if(!W||!H||+W<200||+H<200){alert("Enter valid dimensions (min 200mm)");return;}
+    setWins(p=>[...p,{W:+W,H:+H,qty:+qty||1,sid,tid:type?type.id:tid,id:uid()}]);
+    setW("");setH("");setQty(1);
+  }
+
+  function optimise(){
+    if(!wins.length){alert("Add at least one window");return;}
+    const colorMap={};let ci=0;
+    let allPieces=[],allGlass=[];
+    wins.forEach(win=>{
+      const cuts=getCutList(win.W,win.H,win.sid,win.tid);
+      const glass=getGlassList(win.W,win.H,win.sid,win.tid);
+      cuts.forEach(cut=>{
+        if(!colorMap[cut.sec])colorMap[cut.sec]=OPTI_COLORS[ci++%OPTI_COLORS.length];
+        for(let q=0;q<cut.qty*win.qty;q++)
+          allPieces.push({label:cut.sec+" ("+win.W+"×"+win.H+")",sec:cut.sec,mm:cut.len,color:colorMap[cut.sec]});
+      });
+      glass.forEach(g=>{
+        const ex=allGlass.find(x=>x.type===g.type&&x.W===g.W&&x.H===g.H);
+        if(ex)ex.qty+=g.qty*win.qty;
+        else allGlass.push({...g,qty:g.qty*win.qty});
+      });
+    });
+    const sectionBars=packBySection(allPieces,barLen);
+    // Flatten for summary stats
+    const allBars=Object.values(sectionBars).flat();
+    const totalBars=allBars.length;
+    const totalMat=totalBars*barLen;
+    const totalUsed=allPieces.reduce((s,p)=>s+p.mm,0)+(allPieces.length-totalBars)*SAW_KERF;
+    const totalWaste=totalMat-totalUsed;
+    const eff=Math.round(totalUsed/totalMat*100);
+    const secGroups={};
+    allPieces.forEach(p=>{
+      if(!secGroups[p.sec])secGroups[p.sec]={color:p.color,count:0,totalMm:0};
+      secGroups[p.sec].count++;secGroups[p.sec].totalMm+=p.mm;
+    });
+    setResult({sectionBars,allPieces,allGlass,secGroups,totalMat,totalUsed,totalWaste,eff,barLen,totalBars});
+  }
+
+  const inp2={background:"#fff",border:"1px solid #dde2ee",borderRadius:6,color:"#1e2840",padding:"6px 8px",fontSize:12,boxSizing:"border-box",width:"100%"};
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"320px 1fr",gap:14,alignItems:"start"},className:"g2"},
+
+      // ── LEFT PANEL ───────────────────────────────────────────────────
+      React.createElement("div",null,
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:8,borderBottom:"1px solid #eef0f8"}}),"🪟 Add Windows",
+          React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Series",
+          React.createElement("select",{value:sid,onChange:e=>{setSid(e.target.value);setTid(SERIES[e.target.value].types[0]);},style:inp2},
+            avSeries.map(s=>React.createElement("option",{key:s.id,value:s.id},s.label))
+          ),
+          React.createElement("label",{className:"lbl"}),"Window Type",
+          React.createElement("select",{value:type?type.id:tid,onChange:e=>setTid(e.target.value),style:inp2},
+            avTypes.map(t=>React.createElement("option",{key:t.id,value:t.id},t.full))
+          ),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 60px",gap:8,marginTop:4}},
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Width mm",React.createElement("input",{type:"number",value:W,onChange:e=>setW(e.target.value),placeholder:"2000",style:inp2})),
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Height mm",React.createElement("input",{type:"number",value:H,onChange:e=>setH(e.target.value),placeholder:"1500",style:inp2})),
+            React.createElement("div",null,React.createElement("label",{className:"lbl"}),"Qty",React.createElement("input",{type:"number",value:qty,min:1,onChange:e=>setQty(+e.target.value),style:{...inp2,textAlign:"center"}}))
+          ),
+          React.createElement("button",{onClick:addWin,style:{width:"100%",marginTop:10,padding:"8px",background:"#eff6ff",color:"#2563eb",border:"1px solid #bfdbfe",borderRadius:8,fontWeight:700,fontSize:12,cursor:"pointer"}},
+            "+ Add Window"
+          )
+        ),
+
+        wins.length>0&&React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:8,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"📋 Windows ("+wins.length+")",
+          wins.map((w,i)=>React.createElement("div",{key:w.id,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #f0f2f8",fontSize:12}},
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("span",{style:{fontWeight:600}}),w.W+"×"+w.H+"mm ",
+              React.createElement("span",{style:{color:"#6b7a99",fontSize:11}},SERIES[w.sid].label+" · "+(TYPES.find(t=>t.id===w.tid)||{label:w.tid}).label+" · ×"+w.qty)
+            ),
+            React.createElement("button",{onClick:()=>setWins(p=>p.filter((_,j)=>j!==i)),style:{padding:"2px 8px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:5,cursor:"pointer",fontSize:11}},"✕")
+          ))
+        ),
+
+        React.createElement("div",{className:"card"},
+          React.createElement("label",{className:"lbl",style:{marginTop:0}}),"Bar length",
+          React.createElement("select",{value:barLen,onChange:e=>setBarLen(+e.target.value),style:inp2},
+            [[5000,"5000mm (5 mtr)"],[5800,"5800mm"],[6000,"6000mm — standard"],[6096,"6096mm (20 ft)"],[6500,"6500mm"],[3658,"3658mm (12 ft)"],[4267,"4267mm (14 ft)"],[4572,"4572mm (15 ft)"],[4877,"4877mm (16 ft)"]].map(([v,l])=>React.createElement("option",{key:v,value:v},l))
+          ),
+          React.createElement("div",{style:{marginTop:8,padding:"7px 10px",background:"#f0f9f4",borderRadius:6,fontSize:11,color:"#6b7a99"}},
+            "✂ Saw kerf: "+SAW_KERF+"mm per cut deducted automatically"
+          ),
+          React.createElement("button",{onClick:optimise,style:{width:"100%",marginTop:10,padding:"11px",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",color:"#fff",border:"none",borderRadius:8,fontWeight:700,fontSize:14,cursor:"pointer"}},
+            "⚡ Calculate Optimum Cuts"
+          )
+        )
+      ),
+
+      // ── RIGHT: RESULTS ─────────────────────────────────────────────────
+      React.createElement("div",null,
+        !result&&React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:400,background:"#fff",borderRadius:10,border:"1px solid #e4e8f0",color:"#c5cde0",textAlign:"center"}},
+          React.createElement("div",{style:{fontSize:40,marginBottom:10}}),"✂",
+          React.createElement("div",{style:{fontSize:14,color:"#a0abc0"}}),"Add windows and click Calculate",
+          React.createElement("div",{style:{fontSize:12,marginTop:6,color:"#c5cde0"}}),"Get optimum cut plan + glass list"
+        ),
+
+        result&&React.createElement("div",{className:"fi"},
+          // Stats
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}},
+            [
+              [result.totalBars,"Bars needed","#2563eb"],
+              [result.eff+"%","Efficiency","#16a34a"],
+              [(result.totalWaste/1000).toFixed(2)+"m","Total waste","#d97706"],
+              [result.allPieces.length,"Total pieces","#6b7a99"],
+            ].map(([v,l,c])=>React.createElement("div",{key:l,style:{background:"#fff",border:"1px solid #e4e8f0",borderRadius:10,padding:"10px 12px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}},
+              React.createElement("div",{style:{fontSize:20,fontWeight:800,color:c}}),v,
+              React.createElement("div",{style:{fontSize:10,color:"#6b7a99",marginTop:2}}),l
+            ))
+          ),
+
+          // Legend
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"✂ Cut Layout — "+result.barLen+"mm bars",
+            React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}},
+              Object.entries(result.secGroups).map(([sec,g])=>
+                React.createElement("div",{key:sec,style:{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:99,background:g.color+"15",border:"1px solid "+g.color+"33",fontSize:10}},
+                  React.createElement("div",{style:{width:7,height:7,borderRadius:"50%",background:g.color,flexShrink:0}}),
+                  React.createElement("span",{style:{color:"#6b7a99"}}),sec,
+                  React.createElement("span",{style:{color:"#9ba5bf"}}," ×"+g.count)
+                )
+              )
+            ),
+            // Bar visualization
+            result.bars.map((bar,bi)=>{
+              const segs=bar.cuts.map(c=>{
+                const w=(c.mm/result.barLen*100).toFixed(2);
+                return React.createElement("div",{key:bi+"_"+c.mm+"_"+Math.random(),
+                  title:c.label+": "+c.mm+"mm",
+                  style:{height:"100%",width:w+"%",background:c.color,borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,overflow:"hidden"}},
+                  w>4?React.createElement("span",{style:{fontSize:8,color:"#fff",whiteSpace:"nowrap",overflow:"hidden"}},c.mm):null
+                );
+              });
+              const wasteW=(bar.remaining/result.barLen*100).toFixed(2);
+              return React.createElement("div",{key:bi,style:{display:"flex",alignItems:"center",gap:8,marginBottom:3}},
+                React.createElement("div",{style:{fontSize:9,color:"#9ba5bf",width:52,flexShrink:0,textAlign:"right",lineHeight:1.3}},"Bar "+(bi+1)+"
+"+bar.cuts.length+" pcs"),
+                React.createElement("div",{style:{flex:1,height:16,background:"#f0f2f8",borderRadius:3,overflow:"hidden",display:"flex",gap:1,padding:2}},
+                  ...segs,
+                  React.createElement("div",{style:{height:"100%",width:wasteW+"%",background:"transparent",border:"0.5px dashed #c5cde0",borderRadius:2,flexShrink:0}})
+                ),
+                React.createElement("div",{style:{fontSize:9,color:"#9ba5bf",width:44,flexShrink:0}},bar.remaining+"mm")
+              );
+            })
+          ),
+
+          // Cut list table
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"📋 Order / Cut Sheet",
+            React.createElement("div",{className:"tblwrap"},
+              React.createElement("table",null,
+                React.createElement("thead",null,
+                  React.createElement("tr",{style:{background:"#eff6ff"}},
+                    ["Section","Length mm","Qty","Total m"].map((h,i)=>React.createElement("th",{key:h,className:i===0?"th":"thr"},h))
+                  )
+                ),
+                React.createElement("tbody",null,
+                  Object.entries(result.secGroups).map(([sec,g],i)=>
+                    React.createElement("tr",{key:sec,style:{background:i%2===0?"#f8f9fc":"#fff"}},
+                      React.createElement("td",{className:"td",style:{display:"flex",alignItems:"center",gap:7}},
+                        React.createElement("div",{style:{width:8,height:8,borderRadius:"50%",background:g.color,flexShrink:0}}),sec
+                      ),
+                      React.createElement("td",{className:"tdr"},Math.round(g.totalMm/g.count)),
+                      React.createElement("td",{className:"tdr",style:{fontWeight:700}},g.count),
+                      React.createElement("td",{className:"tdr"},(g.totalMm/1000).toFixed(2))
+                    )
+                  ),
+                  React.createElement("tr",{style:{borderTop:"1px solid #e4e8f0",fontWeight:700}},
+                    React.createElement("td",{className:"td",style:{color:"#1d4ed8"}}),"Total aluminium",
+                    React.createElement("td",{className:"tdr"}),
+                    React.createElement("td",{className:"tdr"}),result.allPieces.length," pcs",
+                    React.createElement("td",{className:"tdr",style:{color:"#16a34a"}}),(result.allPieces.reduce((s,p)=>s+p.mm,0)/1000).toFixed(2)
+                  )
+                )
+              )
+            )
+          ),
+
+          // Glass list
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:.8,marginBottom:10,paddingBottom:7,borderBottom:"1px solid #eef0f8"}}),"🪟 Glass Cutting List",
+            result.allGlass.map((g,i)=>
+              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f0f2f8",fontSize:12}},
+                React.createElement("div",null,
+                  React.createElement("span",{style:{fontWeight:600}}),g.W+" × "+g.H+" mm ",
+                  React.createElement("span",{style:{color:"#6b7a99",fontSize:11}}),g.type
+                ),
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                  React.createElement("span",{style:{fontSize:11,color:"#6b7a99"}}),((g.W/304.8)*(g.H/304.8)).toFixed(2)+" sqft each",
+                  React.createElement("span",{style:{fontWeight:700}}),"× "+g.qty,
+                  React.createElement("span",{style:{padding:"2px 8px",borderRadius:99,background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600}}),((g.W/304.8)*(g.H/304.8)*g.qty).toFixed(2)+" sqft"
+                )
+              )
+            ),
+            React.createElement("div",{style:{marginTop:10,padding:"8px 10px",background:"#f0f9f4",borderRadius:7,display:"flex",justifyContent:"space-between",fontSize:12}},
+              React.createElement("span",{style:{color:"#6b7a99"}}),"Total glass area",
+              React.createElement("span",{style:{fontWeight:700,color:"#16a34a"}}),result.allGlass.reduce((s,g)=>s+((g.W/304.8)*(g.H/304.8)*g.qty),0).toFixed(2)+" sqft"
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+
+
+
+function App(){
+  const lic=loadLic();
+  return React.createElement("div",null,
+    React.createElement(Header,null),
+    React.createElement("div",{style:{maxWidth:1200,margin:"0 auto",padding:"12px 10px"}},
+      React.createElement(OptiTab,{lic,rates:{al:350}})
+    )
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body></html>
